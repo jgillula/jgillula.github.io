@@ -1,3 +1,10 @@
+{% if page.layout == "post" %}
+<div class="sidebar ">
+  <h2>In This Post:</h2>
+  {% include toc.html html=content class='toc' %}
+</div>
+{% endif %}
+
 <div class="sidebar ">
   <h2>Recent Posts</h2>
   <ul>
