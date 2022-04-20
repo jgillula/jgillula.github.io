@@ -469,3 +469,14 @@ table.inner-borders {
     height: 1.5em;
     vertical-align: -0.4em;
 }
+
+.header_link_span {
+    line-height: 1em;
+}
+
+.header_link {
+    font-size: 0.5em;
+    display: inline-block;
+    vertical-align: 0.3em;
+    line-height: 1em; /*set line height back to normal*/
+}

@@ -29,6 +29,8 @@ I also got pagination working, but by the time I got to write this documentation
 
 Originally with this theme you could enable a table of contents for a post by setting `toc: true` in the front matter section of a post. I decided I'd rather always have the TOC on the side, so in `_includes/sidebar.html`, I added code to detect if the layout was a post or not, and show the table of contents if so.
 
+I also wanted to automatically generate links to every header, so I changed `_includes/header.html` to include a slightly edited script [from here](https://darn.es/adding-heading-links-to-your-jekyll-blog/) to automatically insert links, and again edited the css in `assets/css/theme.scss`.
+
 # 2. Update the repo
 
 To add new posts, just copy an existing post in the `_posts` directory, edit it, and then push to Github. The Github action will take care of updating the blog, though it may take ~10 minutes.

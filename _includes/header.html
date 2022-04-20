@@ -41,6 +41,28 @@
     })();
 </script>
 
+{% if page.layout == "post" %}
+<script>
+ $(document).ready(function(){
+
+ const headings = document.querySelectorAll('h1[id], h2[id],h3[id]'); // 1
+   const linkContent = '<i class="fas fa-link"></i>'; // 2
+   for (const heading of headings) { // 3
+                                     const space = document.createElement('span');
+     space.innerHTML=" ";
+     space.className = "header_link_span";
+   const linkIcon = document.createElement('a'); // 4
+   linkIcon.setAttribute('href', `#${heading.id}`); // 5
+   linkIcon.className = "header_link";
+   linkIcon.innerHTML = linkContent; // 6
+   space.appendChild(linkIcon); // 7
+     heading.appendChild(space);
+ }
+   });
+</script>
+{% endif %}
+
+
 <nav class="navbar navbar-expand-lg fixed-top navbar-dark">
     <div class="container">
         <a class="navbar-brand offset-md-1" href="{{ '' | relative_url }}/">{{ site.name }}</a>
