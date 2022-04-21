@@ -480,3 +480,13 @@ table.inner-borders {
     vertical-align: 0.3em;
     line-height: 1em; /*set line height back to normal*/
 }
+
+div.highlighter-rouge {
+    position: relative;
+}
+
+div.highlighter-rouge button {
+    position: absolute;
+    top: 6px;
+    right: 9px;
+}

@@ -31,8 +31,14 @@ Originally with this theme you could enable a table of contents for a post by se
 
 I also wanted to automatically generate links to every header, so I changed [`_includes/header.html`](https://github.com/jgillula/jgillula.github.io/tree/main/_includes/header.html) to include a slightly edited script [from here](https://darn.es/adding-heading-links-to-your-jekyll-blog/) to automatically insert links, and again edited the css in [`assets/css/theme.scss`](https://github.com/jgillula/jgillula.github.io/tree/main/assets/css/theme.scss).
 
-
+Last, I wanted a nice "copy" button for code blocks, so I copied some code [from here](https://www.blandersoft.com/short/code-block-copy-paste/) into [`_includes/header.html`](https://github.com/jgillula/jgillula.github.io/tree/main/_includes/header.html) and [`assets/css/theme.scss`](https://github.com/jgillula/jgillula.github.io/tree/main/assets/css/theme.scss).
 
 # 2. Update the repo
 
 To add new posts, just copy an existing post in the [`_posts`](https://github.com/jgillula/jgillula.github.io/tree/main/_posts) directory, edit it, and then push to Github. The Github action will take care of updating the blog, though it may take a minute.
+
+If you want to see what the post will look like locally before publishing, run
+```bash
+bundle exec jekyll serve
+```
+in the root directory of the repo.
