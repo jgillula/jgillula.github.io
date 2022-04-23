@@ -489,4 +489,14 @@ div.highlighter-rouge button {
     position: absolute;
     top: 6px;
     right: 9px;
+    background-color: rgb(0, 123, 255);
+    color: #fff;
+}
+
+div.highlighter-rouge button:hover {
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.5);
+}
+
+.highlight > pre {
+    padding-right: 80px !important;
 }
