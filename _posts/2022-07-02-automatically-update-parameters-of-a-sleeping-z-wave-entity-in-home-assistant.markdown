@@ -1,9 +1,9 @@
 ---
 layout: post
-title:  Automatically Update Parameters of a Sleeping Z-Wave Device in Home Assistant
+title:  Update Parameters of a Sleeping Z-Wave Device in Home Assistant on a Schedule
 date:   2022-07-02
 tags: homeassistant zwave automations scripts
-description: "Sleeping Z-Wave devices don't check for parameter updates, so we use a bunch of scripts and automations to make them."
+description: "Sleeping Z-Wave devices don't check for parameter updates, so we use a bunch of scripts and automations to make them check, based on a configurable schedule."
 ---
 
 
