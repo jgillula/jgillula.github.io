@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  Updatin Uncleared Home Assistant Android Notifications with AppDaemon
+title:  Updating Uncleared Home Assistant Android Notifications with AppDaemon
 date:   2022-07-04
 tags: homeassistant appdaemon
 description: "With a simple AppDaemon script, we can send notifications with a given tag to devices that haven't previously cleared them."
