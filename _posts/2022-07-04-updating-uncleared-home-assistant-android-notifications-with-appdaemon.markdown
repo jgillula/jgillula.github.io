@@ -9,7 +9,7 @@ description: "With a simple AppDaemon script, we can send notifications with a g
 
 # Goals
 
-For one of my Home Assistant automations, I want to send [notifications to a couple of Android devices](https://companion.home-assistant.io/docs/notifications/notifications-basic/). I also want to be able to update the contents of those notifications when I get new sensor readings, so I can [use a tag](https://companion.home-assistant.io/docs/notifications/notifications-basic/#replacing) to replace the exsting notifications.
+For one of my Home Assistant automations, I want to send [notifications to a couple of Android devices](https://companion.home-assistant.io/docs/notifications/notifications-basic/). I also want to be able to update the contents of those notifications when I get new sensor readings, so [per the documentation I use a tag](https://companion.home-assistant.io/docs/notifications/notifications-basic/#replacing) to replace the existing notifications.
 
 But there's one snag that Home Assistant doesn't support out of the box: if I dismiss (clear) a notification on one of the Android devices, then the next time I try to send an update it will pop up again.
 
@@ -21,9 +21,9 @@ Instead, I want notifications to exist in sort of a session. The session starts 
 
 To accomplish this I wrote an [AppDaemon](https://appdaemon.readthedocs.io/) script which will send notifications and listen for the [`mobile_app_notification_cleared`](https://companion.home-assistant.io/docs/notifications/notification-cleared) event to know when a notification has been cleared.
 
-Unfortunately the [`mobile_app_notification_cleared`](https://companion.home-assistant.io/docs/notifications/notification-cleared) event doesn't contain useful information about what device cleared the notification--it contains a `DEVICE_ID` which is a hexadecimal string, but I can't find any way to easily map that `DEVICE_ID` back to the actual string representing the target (i.e. the `<your_device_id>` in the [`notify.mobile_app_<your_device_id_here>`](https://companion.home-assistant.io/docs/notifications/notifications-basic) service call).
+Unfortunately the [`mobile_app_notification_cleared`](https://companion.home-assistant.io/docs/notifications/notification-cleared) event doesn't contain useful information about what device cleared the notification--it contains a `DEVICE_ID` which is a hexadecimal string, but I can't find any way to easily map that `DEVICE_ID` back to the actual string representing the target (i.e. the `<your_device_id_here>` in the [`notify.mobile_app_<your_device_id_here>`](https://companion.home-assistant.io/docs/notifications/notifications-basic) service call).
 
-However, when a notification is cleared the event does contain all the data of the notofication--including its tag. Thus, by sending each notification with a unique tag that contains both the name of the AppDaemon app *and* the name of the specific target, we can distinguish between devices when we get the [`mobile_app_notification_cleared`](https://companion.home-assistant.io/docs/notifications/notification-cleared) event.
+However, when a notification is cleared the event does contain all the data of the notification--including its tag. Thus, by sending each notification with a unique tag that contains both the name of the AppDaemon app *and* the name of the specific target, we can distinguish between devices when we get the [`mobile_app_notification_cleared`](https://companion.home-assistant.io/docs/notifications/notification-cleared) event.
 
 # High level overview
 
@@ -31,8 +31,8 @@ At a high level, the AppDaemon app works as follows:
 
 0. Via the app's [YAML configuration](https://appdaemon.readthedocs.io/en/latest/APPGUIDE.html#configuration-of-apps) you specify the Android devices you want to target, as well as any default data you want to include in every notification. (I.e. the `data` object that's at the same level as the `title` or `message`.)
 1. The app listens for a specific event, `notify_android_uncleared_<APP_NAME>`, where `<APP_NAME>` is the name of the app in the app's YAML configuration, and where the event data matches the data you'd send in a [`notify.mobile_app_<your_device_id_here>`](https://companion.home-assistant.io/docs/notifications/notifications-basic) service call.
-2. When it first sees the `notify_android_uncleared_<APP_NAME>` event, it adds all the target devices to the list of active devices, and sends them all the notification. With every notification, it overwrites the `tag` field in the notification's `data`, to the form FIXME
-3. The app also listens for the [`mobile_app_notification_cleared`](https://companion.home-assistant.io/docs/notifications/notification-cleared) event. If it receives it, it checks to see if the `tag` in the event's `data` matches the form FIXME. If so, it removes the corresponding device from the list of active devices.
+2. When it first sees the `notify_android_uncleared_<APP_NAME>` event, it adds all the target devices to the list of active devices, and sends them all the notification. With every notification, it overwrites the `tag` field in the notification's `data`, to the form `<APP_NAME>_<your_device_id_here>`.
+3. The app also listens for the [`mobile_app_notification_cleared`](https://companion.home-assistant.io/docs/notifications/notification-cleared) event. If it receives it, it checks to see if the `tag` in the event's `data` matches the form `<APP_NAME>_<your_device_id_here>`. If so, it removes the corresponding device from the list of active devices.
 4. If the app hears the `notify_android_uncleared_<APP_NAME>` event again, it only sends the updated notification to targets that are still active.
 5. If the app hears the `notify_android_uncleared_<APP_NAME>` event but the `message` is [`clear_notification`](https://companion.home-assistant.io/docs/notifications/notifications-basic/#clearing), then the app sends that message to all the remaining active targets, then sets a flag to indicate the session is over. The next time it hears the `notify_android_uncleared_<APP_NAME>` event it starts over at step (2).
 
