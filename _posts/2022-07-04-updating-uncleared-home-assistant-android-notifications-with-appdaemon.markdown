@@ -9,7 +9,7 @@ description: "With a simple AppDaemon script, we can send notifications with a g
 
 # Goals
 
-As one of my Home Assistant automations, I want to send [notifications to a couple of Android devices](https://companion.home-assistant.io/docs/notifications/notifications-basic/). I also want to be able to update the contents of those notifications when I get new sensor readings, so I can [use a tag](https://companion.home-assistant.io/docs/notifications/notifications-basic/#replacing) to replace the exsting notifications.
+For one of my Home Assistant automations, I want to send [notifications to a couple of Android devices](https://companion.home-assistant.io/docs/notifications/notifications-basic/). I also want to be able to update the contents of those notifications when I get new sensor readings, so I can [use a tag](https://companion.home-assistant.io/docs/notifications/notifications-basic/#replacing) to replace the exsting notifications.
 
 But there's one snag that Home Assistant doesn't support out of the box: if I dismiss (clear) a notification on one of the Android devices, then the next time I try to send an update it will pop up again.
 
