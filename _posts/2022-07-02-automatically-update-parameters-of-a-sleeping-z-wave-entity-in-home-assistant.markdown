@@ -9,7 +9,9 @@ description: "Sleeping Z-Wave devices don't check for parameter updates, so we u
 
 # Goals
 
-I have a couple of Z-Wave temperature sensors in my house that are battery operated and so spend most of their time sleeping. When they're sleeping they will occasionally send new readings to Home Assistant, but won't check to see if their configuration parameters have been changed. However, I want to change their parameters over the course of the day: I want them to be more sensitive to temperature changes during the day, and less sensitive at night (in order to save battery power and get readings when I really care about them).
+I have a couple of Z-Wave temperature sensors in my house that are battery operated and so spend most of their time sleeping. When they're sleeping they will occasionally wake up to send new readings to Home Assistant, but won't check to see if their configuration parameters have been changed.
+
+However, I want to change their parameters over the course of the day: I want them to be more sensitive to temperature changes during the day, and less sensitive at night (in order to save battery power and get readings when I really care about them).
 
 # Approach
 
