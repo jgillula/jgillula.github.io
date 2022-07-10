@@ -14,7 +14,7 @@ To do that, I'm going to run [apt-cacher-ng](https://www.unix-ag.uni-kl.de/~bloc
 
 # 0. The Plan
 
-Of course, [apt-cacher-ng](https://www.unix-ag.uni-kl.de/~bloch/acng/) doesn't support HTTPS out of the box. To fix this, I'm going to have to set up apache2 on my local server, have it use HTTPS, and have it act as a [reverse proxy](https://oxylabs.io/blog/reverse-proxy-vs-forward-proxy) in front of [apt-cacher-ng](https://www.unix-ag.uni-kl.de/~bloch/acng/).
+Of course, [apt-cacher-ng](https://www.unix-ag.uni-kl.de/~bloch/acng/) doesn't support HTTPS out of the box. To fix this, I'm going to have to set up apache2 on my local server, have it use HTTPS, and have it act as a [***forward*** proxy](https://oxylabs.io/blog/reverse-proxy-vs-forward-proxy) in front of [apt-cacher-ng](https://www.unix-ag.uni-kl.de/~bloch/acng/).
 
 *Throughout these instructions I'll use `servername` as the hostname of my server. You should replace it with your own local server name.*
 
@@ -64,8 +64,9 @@ I'm going to want apache2 to proxy requests from [https://apt-cacher-ng.serverna
 <VirtualHost *:443>
   ServerName apt-cacher-ng.servername
 
-  ProxyPass "/"  "http://localhost:3142/"
-  ProxyPassReverse "/"  "http://localhost:3142/"
+  ProxyRequests On
+  ProxyVia on
+  ProxyRemote * http://localhost:3142
 
   SSLEngine on
   SSLCertificateFile    /etc/ssl/certs/apt-cacher-ng.pem
