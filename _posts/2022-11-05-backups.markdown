@@ -64,21 +64,15 @@ The next step is figuring out what tools to use to back up all this data so I ca
 
 Thus instead of listing each data type or recovery scenario, I'll list which backup tools I'm using, and then note which recovery scenarios and data types they apply to.
 
-## `apt-clone`
+## `apt-rollback`
 
-[`apt-clone`](https://github.com/mvo5/apt-clone) saves the list of packages you have installed and saves it all up in a tidy `.tar.gz` file. In order to make sure I always have the latest list before installing/updating, I added the following to `/etc/apt/apt.conf.d/99apt-clone`:
-```
-# This will call apt-clone every time we do an install or upgrade, before we do so
-DPkg::Pre-Invoke {"apt-clone clone --with-dpkg-repack /var/backups/apt-clone/`date +%Y-%m-%d--%H-%M-%S`";};
-```
-It saves the results from `apt-clone` to `/var/backups/apt-clone/` by date. (Note that I had to make the `/var/backups/apt-clone` directory.)
+I was originally going to try to use [`apt-clone`](https://github.com/mvo5/apt-clone), but I've found it just doesn't work very well.
 
-As future work, I should probably also add something that periodically cleans/prunes that directory, but the files are so tiny they take up barely any space.
+Instead, for now I'm relying on a script called [`apt-rollback`](https://github.com/jgillula/apt-rollback#readme). It works OK in a pinch, but it would be nice if I could better see exactly what state it's going to try to revert to (maybe all combined), and also if I could check ahead of time and make sure all the packages are available. I guess I have a future project to work on.
 
-`apt-clone` covers:
+`apt-rollback` covers:
 * **Package info**:
-  * **Unwanted package installation/upgrade** &mdash; Obviously, `apt-clone` can help me rollback unwanted installations/upgrades
-  * **Catastrophic package installation/upgrade** &mdash; If there's a catastrophic failure, my `apt-clone` backups can also help me get back to the state I want to be in (in case my last snapshot is older than I want). It can also help me figure out what I installed/upgraded that may have made things go bad, so I can avoid doing it again after restoring a snapshot.
+  * **Unwanted package installation/upgrade** &mdash; Obviously, `apt-rollback` can help me rollback unwanted installations/upgrades
 
 ## `etckeeper`
 
@@ -245,7 +239,7 @@ I also haven't gotten around to backing up my media or personal data not in home
 The final table showing data types, recovery scenarios, and backup tools is below.
 
 | |Unwanted package installation/upgrade|Catastrophic package installation/upgrade|Accidental file edits/deletion|Local disk failure|Local natural disaster|
-|Package info|apt-clone|apt-clone| |borg system repo|rclone|
+|Package info|apt-rollback|Not yet backed up| |borg system repo|rclone|
 |Package files|Syncthing,<br>apt-repo-manager|Syncthing,<br>apt-repo-manager| |RAID storage| |
 |Config files|etckeeper|etckeeper|etckeeper|borg system repo|rclone|
 |System data| |timeshift|timeshift,<br>borg system repo|borg system repo|rclone|
