@@ -1,0 +1,258 @@
+---
+layout: post
+title:  Server Backups!
+date:   2022-11-05
+tags: backups borg borgmatic apt-clone timeshift
+description: "Backups are important. Here's my backup plan for my home server."
+---
+
+# Getting started
+
+Backups are important. I'm not going to lecture any about that here, just jump straight to how I made my backup plan for my home server, and then how I implemented it.
+
+The first step to a good backup plan is knowing what sort of scenarios you want to recover from. That will then dictate what data needs to be backed up, and how you should back it up. Here's what I came up with for my home server.
+
+## Recovery Scenarios
+
+For my home server, there are five types of scenarios I want to be able to recover from:
+
+* **Unwanted package installation/upgrade** &mdash; I'm picky about the software running on my machine, but I also want to be able to try new updates. That means sometimes I want to be able to roll back installation or upgrades of `apt` packages.
+* **Catastrophic package installation/upgrade** &mdash; Although it's less common these days, there's always the chance that I do something to my server that requires more than just a simple package rollback. For example, maybe I mess up grub and the whole server won't boot, or an upgrade to a newer release of the OS just doesn't work for me. In that case, I need a way to revert the entire system back to a known good state.
+* **Accidental file edits/deletion** &mdash; One big danger when I'm mucking about on my server is that I bork a configuration file, or delete some important personal file I meant to have around.
+* **Local disk failure** &mdash; My server's primary HDD is a single regular old SATA HDD. If it dies, I want to be able to get a new one and restore my entire system, including any personal files that were stored there.
+* **Local natural disaster** &mdash A subtly different failure scenario is if there's some natural disaster and not just my server, but everything in my home is lost (think earthquake or tornado or fire). In that case, I'll need some sort of offsite backups so I can restore everything.
+
+## Data Types
+
+Given the scenarios described above, I've divided the data on my server into the following categories:
+* **Package info** &mdash; This is the list of currently installed packages (and their versions).
+* **Package files** &mdash; The actual `.deb` files I need to install the packages. (Some people may think having the `.deb` files is overkill since they can probably be found somewhere on the Internet. Unfortunately while many repos continue to host the files for old versions of their packages, their repos don't actually include them in their `Release` files. That makes finding them a chore, and since storage space is cheap, I'd rather just keep them myself.)
+* **Config files** &mdash; Since Linux keeps things nice and neat, I'll just assume this is everything in `/etc`
+* **System data** &mdash; More or less everything else on my system except home directories.
+* **Home directories** &mdash; Obviously I want to back up these, but I might want to back them up separately from other things.
+
+I also have a couple more unique data types that may not apply for most people:
+* **Application data** &mdash; My server runs [Paperless-ngx](https://github.com/paperless-ngx/paperless-ngx#readme), and it stores a lot of very important, very unreplaceable documents. I want to take special care that these documents are backed up (and their metadata from Paperless-ngx, which it took me a while to assign correctly).
+* **Media** &mdash; My server contains lots of music, movies, and TV shows ripped from my large CD/DVD collection for personal use. There's also some unique music or TV shows in there that I don't have on CD/DVD, but the vast majority of it I do.
+* **Personal data not in home directories** &mdash; My server also contains a lot of data on a RAID array, like old school files or projects from ten years ago.
+
+## Recovery matrix
+
+Given all this, I found it helpful to create a recovery matrix to help me decided which types of data I wanted to be able to recover from which types of scenario.
+
+<style>
+.recovery_matrix tr:nth-child(1) { font-weight: bold; }
+.recovery_matrix tr td:nth-child(1) { font-weight: bold; text-align: right; }
+.recovery_matrix tr td:not(:first-child) { text-align: center; }
+</style>
+
+| |Unwanted package installation or upgrade|Catastrophic package installation or upgrade|Accidental file edits or deletion|Local disk failure|Local natural disaster|
+|Package info|Yes|Yes| |Yes|Yes|
+|Package files|Yes|Yes| |Yes| |
+|Config files|Yes|Yes|Yes|Yes|Yes|
+|System data| |Yes|Yes|Yes|Yes|
+|Home directories| | |Yes|Yes|Yes|
+|Application data| | |Yes|Yes|Yes|
+|Media| | |Yes|Yes| |
+|Personal data not in home directories| | |Yes|Yes|Yes|
+{: .recovery_matrix}
+
+
+# The backup plan
+
+The next step is figuring out what tools to use to back up all this data so I can recover from the given scenarios. One interesting thing I read in my backup research is that it's important not just to have backups to multiple locations, but also [to use different backup software for redundancy](https://www.reddit.com/r/linuxmasterrace/comments/ubdyss/comment/i65i91w/). Using redundant backup software also helps because even though some software may technically work in a given recovery scenario, different software may make recovery easier. (For example, `timeshift` below can technically let me recover from borking my `/etc` directory, but `etckeeper` may make it easier so I don't have to restore an entire snapshot or go spelunking into my snapshots to figure out which config files changed.)
+
+Thus instead of listing each data type or recovery scenario, I'll list which backup tools I'm using, and then note which recovery scenarios and data types they apply to.
+
+## `apt-clone`
+
+[`apt-clone`](https://github.com/mvo5/apt-clone) saves the list of packages you have installed and saves it all up in a tidy `.tar.gz` file. In order to make sure I always have the latest list before installing/updating, I added the following to `/etc/apt/apt.conf.d/99apt-clone`:
+```
+# This will call apt-clone every time we do an install or upgrade, before we do so
+DPkg::Pre-Invoke {"apt-clone clone --with-dpkg-repack /var/backups/apt-clone/`date +%Y-%m-%d--%H-%M-%S`";};
+```
+It saves the results from `apt-clone` to `/var/backups/apt-clone/` by date. (Note that I had to make the `/var/backups/apt-clone` directory.)
+
+As future work, I should probably also add something that periodically cleans/prunes that directory, but the files are so tiny they take up barely any space.
+
+`apt-clone` covers:
+* **Package info**:
+  * **Unwanted package installation/upgrade** &mdash; Obviously, `apt-clone` can help me rollback unwanted installations/upgrades
+  * **Catastrophic package installation/upgrade** &mdash; If there's a catastrophic failure, my `apt-clone` backups can also help me get back to the state I want to be in (in case my last snapshot is older than I want). It can also help me figure out what I installed/upgraded that may have made things go bad, so I can avoid doing it again after restoring a snapshot.
+
+## `etckeeper`
+
+[`etckeeper`](https://etckeeper.branchable.com/) automatically maintains `/etc` in version control (e.g. `git`), so you can always roll back a change, see diffs, etc. (Pun intended.)
+
+For my installation I didn't do any special configuration; I just used it out of the box.
+
+`etckeeper` covers:
+* **Config files**:
+  * **Unwanted package installation/upgrade** &mdash; `etckeeper` can help restore earlier versions of config files, if they get overwritten during an upgrade
+  * **Catastrophic package installation/upgrade** &mdash; `etckeeper` can help restore later versions of config files, if the snapshot I have is older than I want.
+  * **Accidental file edits/deletion** &mdash; `etckeeper` shines at being able to restore earlier versions of config files that I may have accidentally edited or deleted.
+
+## `timeshift`
+
+Sometimes you don't want to deal with the hassle of figuring out which package version you should roll back to or finding the right version of the config file. Sometimes you just want to roll back everything on the machine to an earlier point in time. For that, there's [`timeshift`](https://github.com/linuxmint/timeshift). Timeshift takes a snapshot of basically everything on the machine except for user home directories, using `rsync`, and hard links to save space. I also made sure to exclude the following directories:
+
+* `/var/log` since it changes a ton, and I haven't yet needed a backup of my log files
+* `/var/local/paperless-ngx` for reasons described below
+* `/var/tmp` because of course I don't need backups of that
+* `/var/cache` because presumably that can be rebuilt
+* `/swap.img` because I don't need a backup of my swap file
+* `/var/backups/apt-clone` because if I need to restore to an earlier snapshot, I want to keep all my `apt-clone` backups untouched.
+
+`timeshift` is essentially my "restore a known good point in time for my system" backup tool, and covers:
+* **Config files**
+  * **Catastrophic package installation/upgrade**
+* **System data**
+  * **Catastrophic package installation/upgrade**
+
+## `borg` and `borgmatic`
+[`borg`](https://borgbackup.readthedocs.io/en/stable/index.html) is a mature backup system that uses encryption, deduplication, and all the other 'tions you want in a backup system. A lot of people also use restic, but after doing [some research](https://www.reddit.com/r/linuxquestions/comments/uasec0/comment/i63bdvf/?utm_source=share&utm_medium=web2x&context=3) (e.g. [this excellent comparison between the two](https://www.reddit.com/r/BorgBackup/comments/v3bwfg/why_should_i_switch_from_restic_to_borg/) I decided to stick with Borg. My primary reason was that it has decent GUI support, and I want to be able to use the same system on my laptops (where a GUI will be more important).
+
+In order to make running it on my server easy, I use [`borgmatic`](https://torsion.org/borgmatic/) to save some configuration files so I don't have to constantly type in parameters/arguments.
+
+Roughly following [the instructions here](https://borgbackup.readthedocs.io/en/stable/deployment/central-backup-server.html), I setup a borg user/group on my server, and then setup a repo directory on my RAID array for my server to back up to complete with SSH key (belonging to root, since all the borgmatic backups run as root). I then setup three repos.
+
+All of the repos use the following retention plan:
+```yaml
+# Number of daily archives to keep.
+keep_daily: 7
+
+# Number of weekly archives to keep.
+keep_weekly: 4
+
+# Number of monthly archives to keep.
+keep_monthly: 12
+
+# Number of yearly archives to keep.
+keep_yearly: 5
+```
+
+
+### `borg` system repo
+
+The `borg` system repo is configured to backup everything under the root directory, with the following [exceptions](https://borgbackup.readthedocs.io/en/stable/usage/help.html#borg-help-patterns):
+```yaml
+    patterns:
+      - R /
+      - '- /home/'
+      - '! /dev/'
+      - '! /lost+found'
+      - '! /mnt/'
+      - '! /media/'
+      - '! /proc/'
+      - '! /run/'
+      - '! /sys/'
+      - '- /tmp/'
+      - '- /var/log/'
+      - '- /var/cache/*'
+      - '- /swap.img'
+      - '- **/__pycache__/'
+```
+
+Basically, it ignores home directories, `/tmp/`, `/var/log/`, `/var/cache/`, and things that aren't normal files. I have not excluded `/etc` so there's redundancy with `etckeeper`. I have also not excluded `/timeshift`, so borg will keep a backup of all of my snapshots. Given that, it covers:
+
+* **Package info**
+  * **Local disk failure** &mdash; All of the `apt-clone` files are backed up in borg, and since the `borg` repo is stored on RAID they're safe from local disk failure.
+* **Config files**
+  * **Local disk failure** &mdash; Since the entire `/etc` directory is included, and the `borg` repo is stored on RAID
+* **System data**
+  * **Accidental file edits/deletion** &mdash; I can always poke around in an old `borg` archive to find a file I deleted
+  * **Local disk failure** &mdash; Since `borg` includes `/timeshift`, and the `borg` repo is stored on RAID, I can always recover from a `timeshift` snapshot in `borg` if my HDD dies
+
+### `borg` home_dirs repo
+
+The home_dirs repo is self-explanatory: it backs up the home directories on the server. I decided to break them out since I'm less likely to need to be able to recover data from a home directory simultaneously with system data, and working with smaller repos is easier. It covers:
+* **Home directories**
+  * **Accidental file edits/deletion**
+  * **Local disk failure** &mdash; Since this repo is stored on RAID
+
+### `borg` paperless repo
+
+In order to keep both the data stored in Paperless and its configuration, I set up a separate repo. (As with the home_dirs repo, the motivation is that working with smaller repos is faster/easier.) It backs up:
+```yaml
+location:
+    source_directories:
+        - /media/raidencrypted/backups/paperless_backup
+        - /var/local/paperless-ngx
+        - /var/local/paperless-ngx-postprocessor/rulesets.d
+        - /etc/apache2/sites-available
+```
+where `/media/raidencrypted/backups/paperless_backup` is set as my export directory for paperless, `/var/local/paperless-ngx` is where Paperless is installed, `/var/local/paperless-ngx-postprocessor/rulesets.d` is the directory for my [Paperless-ngx-postprocesser](https://github.com/jgillula/paperless-ngx-postprocessor#readme) rulesets.
+
+It uses the include/exclude patterns:
+```yaml
+    patterns:
+      - R /
+      - '- /var/local/paperless-ngx'
+      - '+ pf:/var/local/paperless-ngx/docker-compose.env'
+      - '+ pf:/var/local/paperless-ngx/docker-compose.yml'
+      - '- /etc/apache2/sites-available'
+      - '+ pf:/etc/apache2/sites-available/paperless-subdomain.conf'
+```
+This allows me to backup just the `docker-compose.env` and `docker-compose.yml` files without anything else in that directory, as well as just my `apache2` config for paperless.
+
+Of course before I can get a backup, I need to export all the documents and metadata from Paperless-ngx by doing:
+```bash
+cd /var/local/paperless-ngx
+/usr/bin/docker-compose exec -T webserver document_exporter ../export
+```
+
+With this in place, the paperless `borg` repo covers:
+* **Application data**
+  * **Accidental file edits/deletion** &mdash If I accidentally delete a file from Paperless, I have `borg` repo I can use to restore it.
+  * **Local disk failure** &mdash Since the Paperless `borg` repo is stored on my RAID array, it's safe from local disk failure.
+
+## `rclone`
+
+So far, all the backup tools I'm using either only make local backups or are configured to make local backups only. `rclone` and [BorgBase](https://www.borgbase.com/) to the rescue.
+
+First, I followed [the instructions on BorgBase's documentation](https://docs.borgbase.com/setup/import/#import-existing-repository) about how to setup the BorgBase repositories to receive repos using `rclone`. I then created an `rclone` config file as described a little further down that page, with a separate section for each repo I want to back up, and stored it in `/etc/borgmatic/rclone.conf`.
+
+Syncing the repo is then just a matter of running
+```bash
+sudo rclone sync --config /etc/borgmatic/rclone.conf /media/raidencrypted/backups/borg-backup/repos/server.local/$repo_name borgbase-server-$repo_name:repo
+```
+
+The initial sync took several days for a ~36GB repo, but subsequent updates only take about 20 minutes.
+
+## RAID storage
+
+Finally, as I've mentioned a couple times I have a local RAID array plugged into my server. It's not strictly a backup mechanism, but it does help cover the following data types and recovery scenarios:
+
+* **Media**
+  * **Local disk failure**
+* **Personal data not in home directories**
+  * **Local disk failure**
+
+# Putting it all together
+
+One thing you may have noticed is that `borg` is used to provide some redundancy both for `timeshift` and Paperless. To make sure those three play nicely, I use the [`run_backups.sh`](https://gist.github.com/jgillula/36de2f8a41a27cdaf148ca722342bffe#file-run-backups-cron) simple bash script I wrote. It exports data from Paperless, tries to run `timeshift` up to 10 times to make sure it's taken a snapshot, and then runs each `borg` backup in turn. As a bonus, it compares the sha256 hash of the `manifest.json` that Paperless exports to see if anything has changed, and skips that backup if it's not necessary.
+
+To ensure I get backups once a day (well, really early morning), I use a [`cron` job](https://gist.github.com/jgillula/36de2f8a41a27cdaf148ca722342bffe#file-run_backups-sh) dropped in `/etc/cron.d/` to call the `run_backups.sh` script and record its output to the syslog.
+
+# What's missing
+
+One file type I haven't covered in this post is package files. My plan for covering that is [in a previous post](/2022/10/hosting-your-own-apt-repo-cache/), and it basically involves [Syncthing](https://syncthing.net) and the [`apt-repo-manager`](https://github.com/jgillula/apt-repo-manager#readme) script I wrote.
+
+I also haven't gotten around to backing up my media or personal data not in home directories yet. I'll probably add that to `borg` once I clean out some of the stuff I definitely don't need, and then use `rclone` to back it up to the cloud.
+
+# The end
+
+The final table showing data types, recovery scenarios, and backup tools is below.
+
+| |Unwanted package installation/upgrade|Catastrophic package installation/upgrade|Accidental file edits/deletion|Local disk failure|Local natural disaster|
+|Package info|apt-clone|apt-clone| |borg system repo|rclone|
+|Package files|Syncthing,<br>apt-repo-manager|Syncthing,<br>apt-repo-manager| |RAID storage| |
+|Config files|etckeeper|etckeeper|etckeeper|borg system repo|rclone|
+|System data| |timeshift|timeshift,<br>borg system repo|borg system repo|rclone|
+|Home directories| | |borg home_dirs repo|borg home_dirs repo|rclone|
+|Application data| | |borg paperless repo|borg paperless repo|rclone|
+|Media| | |Not yet backed up|RAID storage| |
+|Personal data not in home directories| | |Not yet backed up|RAID storage|Not yet backed up|
+{: .recovery_matrix}
+
+And that's it! That's how I roll my backups, and now I just hope I never need them.
