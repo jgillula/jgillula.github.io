@@ -1,0 +1,371 @@
+
+
+
+
+
+
+
+
+
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Random Hacks | Setting up apt-cacher-ng with HTTPS </title>
+    <meta name="theme-color" content="#222222"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="/assets/js/jquery.min.js"></script>
+    <script src="/assets/js/popper.min.js"></script>
+    <script src="/assets/js/bootstrap4.min.js"></script>
+    <script src="/assets/js/header.js"></script>
+    <script src="/assets/css/svg-with-js/js/fontawesome-all.js"></script>
+    <link href="/assets/css/bootstrap4.min.css" rel="stylesheet">
+    <link href="/assets/css/theme.css" rel="stylesheet">
+    <link href="/assets/css/syntax.css" rel="stylesheet">
+ </head>
+
+<body>
+
+<script type="text/javascript">
+    WebFontConfig = {
+        google: {
+            families: ['Ubuntu::latin']
+        }
+    };
+    (function () {
+        var wf = document.createElement('script');
+        wf.src = ('https:' == document.location.protocol ? 'https' : 'http') +
+            '://ajax.googleapis.com/ajax/libs/webfont/1/webfont.js';
+        wf.type = 'text/javascript';
+        wf.async = 'true';
+        var s = document.getElementsByTagName('script')[0];
+        s.parentNode.insertBefore(wf, s);
+    })();
+
+
+ function InitCopyPaste(){
+   const codeBlocks = document.querySelectorAll("div.highlighter-rouge");
+
+   codeBlocks.forEach((codeblock, index) => {
+     const code = codeBlocks[index].innerText;
+     const copyCodeButton = document.createElement("button");
+     copyCodeButton.innerHTML = "COPY";
+     copyCodeButton.classList = "btn btn-sm btn-outline-primary";
+     // insert a copy button
+     copyCodeButton.onclick = function () {
+       window.navigator.clipboard.writeText(code);
+       copyCodeButton.innerHTML = "COPIED";
+       copyCodeButton.classList.add("btn-success");
+       copyCodeButton.classList.remove("btn-outline-primary");
+
+       setTimeout(() => {
+         copyCodeButton.innerHTML = "COPY";
+         copyCodeButton.classList.remove("btn-success");
+         copyCodeButton.classList.add("btn-outline-primary");
+       }, 2000);
+     };
+     // make the button
+     codeblock.appendChild(copyCodeButton);
+   });
+ }
+
+ document.addEventListener("DOMContentLoaded", InitCopyPaste);
+</script>
+
+
+<script>
+ $(document).ready(function(){
+
+ const headings = document.querySelectorAll('h1[id], h2[id],h3[id]'); // 1
+   const linkContent = '<i class="fas fa-link"></i>'; // 2
+   for (const heading of headings) { // 3
+                                     const space = document.createElement('span');
+     space.innerHTML=" ";
+     space.className = "header_link_span";
+   const linkIcon = document.createElement('a'); // 4
+   linkIcon.setAttribute('href', `#${heading.id}`); // 5
+   linkIcon.className = "header_link";
+   linkIcon.innerHTML = linkContent; // 6
+   space.appendChild(linkIcon); // 7
+     heading.appendChild(space);
+ }
+   });
+</script>
+
+
+
+<nav class="navbar navbar-expand-lg fixed-top navbar-dark">
+    <div class="container">
+        <a class="navbar-brand offset-md-1" href="/">Random Hacks</a>
+        <button class="navbar-toggler" type="button" data-toggle="collapse"
+                data-target="#navbarNavAltMarkup" aria-controls="navbarNavAltMarkup"
+                aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNavAltMarkup">
+          <div class="navbar-nav">
+            <a class="nav-item nav-link" href="/">Home</a>
+            <a class="nav-item nav-link" href="/about">About</a>
+          </div>
+        </div>
+    </div>
+</nav>
+
+    <div class="wrapper">
+      <div class="content">
+        <div class="container container-center">
+          <div class="row">
+            <div class="col-md-8 offset-md-1">
+              <div class="article">
+                <div class="card">
+                  <h1><a href="/2022/04/setting-up-apt-cacher-ng-with-https/">Setting up apt-cacher-ng with HTTPS</a></h1>
+                  <div class="post-meta">
+                    <div class="post-time">
+                      <i class="fa fa-calendar-alt"></i>
+                      <time>20 Apr 2022</time>
+                    </div>
+                    <ul>
+                      
+                        <li><a href="/tag/apt-cacher-ng">apt-cacher-ng</a></li>
+                      
+                        <li><a href="/tag/https">https</a></li>
+                      
+                        <li><a href="/tag/apache2">apache2</a></li>
+                      
+                    </ul>
+                  </div>
+                   <div class="post-content"> 
+                     <h1 id="goals">Goals</h1>
+
+<p><a href="https://www.unix-ag.uni-kl.de/~bloch/acng/">apt-cacher-ng</a> is a proxy server that sits between your apt client (i.e. the <code class="language-plaintext highlighter-rouge">apt</code> command on your computer) and the apt archives from which you usually download packages. As the name implies, it caches those apt packages. I want to use it to keep a local cache of the packages I install, so that if I ever need to roll back (I’m looking at you, changes that dramatically alter the UI without making things actually better) I have a complete archive of the versions I’ve installed.</p>
+
+<p>To do that, I’m going to run <a href="https://www.unix-ag.uni-kl.de/~bloch/acng/">apt-cacher-ng</a> on my local server. That means my laptop will need to connect to it (instead of the usual apt archives) whenever it wants to check for updates. Sometimes my laptop is not on my home network, and I don’t want it to connect to any old arbitrary server claiming to be my local server. Thus, I need to have my local <a href="https://www.unix-ag.uni-kl.de/~bloch/acng/">apt-cacher-ng</a> server only accept connections over HTTPS.</p>
+
+<h1 id="0-the-plan">0. The Plan</h1>
+
+<p>Of course, <a href="https://www.unix-ag.uni-kl.de/~bloch/acng/">apt-cacher-ng</a> doesn’t support HTTPS out of the box. To fix this, I’m going to have to set up apache2 on my local server, have it use HTTPS, and have it act as a <a href="https://oxylabs.io/blog/reverse-proxy-vs-forward-proxy"><strong><em>forward</em></strong> proxy</a> in front of <a href="https://www.unix-ag.uni-kl.de/~bloch/acng/">apt-cacher-ng</a>.</p>
+
+<p><em>Throughout these instructions I’ll use <code class="language-plaintext highlighter-rouge">servername</code> as the hostname of my server. You should replace it with your own local server name.</em></p>
+
+<p><em>All of the work in the following steps is done on my server unless otherwise specified.</em></p>
+
+<h1 id="1-getting-the-https-certificate">1. Getting the HTTPS certificate</h1>
+
+<p>Normally this is the step where I’d spin up <a href="https://certbot.eff.org/">Certbot</a> or some other <a href="https://letsencrypt.org">Let’s Encrypt</a> client. But since my local server is not going to be accessible from the general Internet I can’t get a publicly valid cert. Instead I’m going to have to create a local certificate authority, generate a CA root cert, put it on my laptop, and then generate a CA-root-signed cert for my server and make nginx use it.</p>
+
+<p>Creating and signing certs is arcane black magic, so instead of trying to do everything by hand I’m going to use the <a href="https://github.com/FiloSottile/mkcert">mkcert</a> tool. Since <code class="language-plaintext highlighter-rouge">mkcert</code> doesn’t have a PPA or a standard apt package, you’ll have to download a pre-built binary from <a href="https://github.com/FiloSottile/mkcert/releases">https://github.com/FiloSottile/mkcert/releases</a></p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>wget https://github.com/FiloSottile/mkcert/releases/download/v1.4.3/mkcert-v1.4.3-linux-amd64 <span class="nt">-O</span> mkcert <span class="c"># By default wget will validate certificates, so this should be safe</span>
+<span class="nb">chmod</span> +x mkcert
+</code></pre></div></div>
+<p>I want to store my CA key and certificate on a removable drive for security, so to do that we set the <code class="language-plaintext highlighter-rouge">CAROOT</code> environment variable, and then make sure it gets passed to sudo:</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">export </span><span class="nv">CAROOT</span><span class="o">=</span>/some/directory
+<span class="nb">sudo</span> <span class="nt">--preserve-env</span><span class="o">=</span>CAROOT ./mkcert
+</code></pre></div></div>
+<p>That created two files in <code class="language-plaintext highlighter-rouge">$CAROOT</code>, the CA’s private key <code class="language-plaintext highlighter-rouge">rootCA-key.pem</code>, and the CA’s root certificate <code class="language-plaintext highlighter-rouge">rootCA.pem</code>. I’ll need to copy the CA root certificate to any device that I want to have recognize my certs, so I’ll copy that back to my working directory:</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">cp</span> <span class="nv">$CAROOT</span>/rootCA.pem <span class="nb">.</span>
+</code></pre></div></div>
+
+<p>Finally to create the certificate for my server, I just do</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>sudo --preserve-env=CAROOT ./mkcert -cert-file /etc/ssl/certs/apt-cacher-ng.pem -key-file /etc/ssl/private/apt-cacher-ng.key apt-cacher-ng.servername
+</code></pre></div></div>
+<p>This installs the certificate and private key in locations where apache2 will be able to find them later.</p>
+
+<p><strong><em>Note: By default the certs <code class="language-plaintext highlighter-rouge">mkcert</code> creates are only valid for 27 months, so you’ll have to manually repeat this process to create new certs before then. See the bottom of the page for how to do it.</em></strong></p>
+
+<h1 id="2-install-and-configure-apt-cacher-ng">2. Install and configure apt-cacher-ng</h1>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">sudo </span>apt <span class="nb">install </span>apt-cacher-ng
+</code></pre></div></div>
+<p>By default <a href="https://www.unix-ag.uni-kl.de/~bloch/acng/">apt-cacher-ng</a> listens on port <code class="language-plaintext highlighter-rouge">3142</code>, so you can verify it’s working by visiting <a href="http://servername:3142/acng-report.html">http://servername:3142/acng-report.html</a></p>
+
+<h1 id="3-install-and-configure-apache2">3. Install and configure apache2</h1>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">sudo </span>apt <span class="nb">install </span>apache2
+</code></pre></div></div>
+<p>I’m going to want apache2 to proxy requests from <a href="https://apt-cacher-ng.servername">https://apt-cacher-ng.servername</a>, so I create a new site config as follows and save it in <code class="language-plaintext highlighter-rouge">/etc/apache2/sites-available/apt-cacher-ng-proxy.conf</code>:</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>&lt;VirtualHost *:443&gt;
+  ServerName apt-cacher-ng.servername
+
+  ProxyRequests On
+  ProxyVia on
+  ProxyRemote * http://localhost:3142
+
+  SSLEngine on
+  SSLCertificateFile    /etc/ssl/certs/apt-cacher-ng.pem
+  SSLCertificateKeyFile /etc/ssl/private/apt-cacher-ng.key
+&lt;/VirtualHost&gt;
+</code></pre></div></div>
+
+<p>Then to get apache2 to actually enable the proxy, I do:</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">sudo </span>a2ensite apt-cacher-ng-proxy.conf
+<span class="nb">sudo </span>a2enmod ssl
+<span class="nb">sudo </span>systemctl restart apache2
+</code></pre></div></div>
+
+<p>Last but not least, I need machines on my local network to know at what IP address to find <a href="https://apt-cacher-ng.servername">https://apt-cacher-ng.servername</a>. I’ve already set up avahi to do this for other aliases, so I just add <code class="language-plaintext highlighter-rouge">apt-cacher-ng.servername</code> to the <code class="language-plaintext highlighter-rouge">/etc/avahi/aliases</code> file, and restart avahi:</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">sudo </span>systemctl restart avahi-alias
+</code></pre></div></div>
+
+<h1 id="4-install-the-root-ca-certificate-on-your-clients">4. Install the root CA certificate on your clients</h1>
+
+<p>To install the root CA certificate on your Ubuntu machine, you’ll need to first transfer the <code class="language-plaintext highlighter-rouge">rootCA.pem</code> file we created in step 1 to the client machine. Then do the following <strong>on your client machine</strong>:</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">sudo cp </span>rootCA.pem /usr/local/share/ca-certificates/servername.crt <span class="c"># The .crt extension is required. Also note that you can't use a period character anywhere in the filename except in the ".crt" part</span>
+<span class="nb">sudo </span>update-ca-certificates
+</code></pre></div></div>
+
+<p>If you want to test and make sure everything is working, you can also install the root cert in Chrome by visiting <a href="chrome://settings/certificates">chrome://settings/certificates</a>, choosing “Authorities”, and then clicking “Import” and following the prompts. Then you can visit <a href="https://apt-cacher-ng.servername/acng-report.html">https://apt-cacher-ng.servername/acng-report.html</a> and verify that apt-cacher-ng is running, apache2 is proxying the https request to it, and that your browser accepts the certificate as valid (in reverse order, really).</p>
+
+<h1 id="5-next-time">5. Next time…</h1>
+
+<p>In the next blog post, I’ll document how to configure apt on an Ubuntu system to use the new <a href="https://www.unix-ag.uni-kl.de/~bloch/acng/">apt-cacher-ng</a> proxy we created.</p>
+
+<h1 id="6-how-to-renew-your-certs">6. How to renew your certs</h1>
+
+<p>As mentioned above, the certs created by <code class="language-plaintext highlighter-rouge">mkcert</code> are only valid for 27 months (which is probably a good idea). To create a fresh cert for the apt-cacher-ng proxy, just make sure the external drive where you saved the private key for the root CA is plugged in and available at <code class="language-plaintext highlighter-rouge">/some/directory</code>, and then do:</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>wget https://github.com/FiloSottile/mkcert/releases/download/v1.4.3/mkcert-v1.4.3-linux-amd64 <span class="nt">-O</span> mkcert <span class="c"># By default wget will validate certificates, so this should be safe</span>
+<span class="nb">chmod</span> +x mkcert
+<span class="nb">export </span><span class="nv">CAROOT</span><span class="o">=</span>/some/directory
+<span class="nb">sudo</span> <span class="nt">--preserve-env</span><span class="o">=</span>CAROOT ./mkcert <span class="nt">-cert-file</span> /etc/ssl/certs/apt-cacher-ng.pem <span class="nt">-key-file</span> /etc/ssl/private/apt-cacher-ng.key apt-cacher-ng.servername
+<span class="nb">sudo </span>systemctl reload apache2
+</code></pre></div></div>
+ 
+                     
+ 
+                   </div> 
+                </div>
+              </div>
+            </div>
+            <div class="col-md-3 hidden-xs">
+              
+<div class="sidebar ">
+  <h2>In This Post:</h2>
+  <ul class="toc">
+  <li><a href="#goals">Goals</a></li>
+  <li><a href="#0-the-plan">0. The Plan</a></li>
+  <li><a href="#1-getting-the-https-certificate">1. Getting the HTTPS certificate</a></li>
+  <li><a href="#2-install-and-configure-apt-cacher-ng">2. Install and configure apt-cacher-ng</a></li>
+  <li><a href="#3-install-and-configure-apache2">3. Install and configure apache2</a></li>
+  <li><a href="#4-install-the-root-ca-certificate-on-your-clients">4. Install the root CA certificate on your clients</a></li>
+  <li><a href="#5-next-time">5. Next time…</a></li>
+  <li><a href="#6-how-to-renew-your-certs">6. How to renew your certs</a></li>
+</ul>
+</div>
+
+
+<div class="sidebar ">
+  <h2>Recent Posts</h2>
+  <ul>
+    
+    <li><a href="/2022/11/backups/">Server Backups!</a></li>
+    
+    <li><a href="/2022/10/hosting-your-own-apt-repo-cache/">Hosting Your Own Apt Repo Cache</a></li>
+    
+    <li><a href="/2022/07/getting-home-assistant-to-tell-me-when-to-open-the-windows/">Getting Home Assistant to Tell Me When to Open the Windows</a></li>
+    
+    <li><a href="/2022/07/updating-uncleared-home-assistant-android-notifications-with-appdaemon/">Updating Uncleared Home Assistant Android Notifications with AppDaemon</a></li>
+    
+    <li><a href="/2022/07/automatically-update-parameters-of-a-sleeping-z-wave-entity-in-home-assistant/">Update Parameters of a Sleeping Z-Wave Device in Home Assistant on a Schedule</a></li>
+    
+  </ul>
+</div>
+
+<div class="sidebar">
+  <h2>Tags</h2>
+  <ul class="fa-ul">
+    
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/apache2" data-toggle="tooltip" data-placement="right" title="1">
+        <span>apache2</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/appdaemon" data-toggle="tooltip" data-placement="right" title="1">
+        <span>appdaemon</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/apt" data-toggle="tooltip" data-placement="right" title="1">
+        <span>apt</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/apt-cacher-ng" data-toggle="tooltip" data-placement="right" title="1">
+        <span>apt-cacher-ng</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/apt-clone" data-toggle="tooltip" data-placement="right" title="1">
+        <span>apt-clone</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/automations" data-toggle="tooltip" data-placement="right" title="2">
+        <span>automations</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/backups" data-toggle="tooltip" data-placement="right" title="2">
+        <span>backups</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/blueprint" data-toggle="tooltip" data-placement="right" title="1">
+        <span>blueprint</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/borg" data-toggle="tooltip" data-placement="right" title="1">
+        <span>borg</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/borgmatic" data-toggle="tooltip" data-placement="right" title="1">
+        <span>borgmatic</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/github" data-toggle="tooltip" data-placement="right" title="1">
+        <span>github</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/homeassistant" data-toggle="tooltip" data-placement="right" title="3">
+        <span>homeassistant</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/https" data-toggle="tooltip" data-placement="right" title="1">
+        <span>https</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/jekyll" data-toggle="tooltip" data-placement="right" title="1">
+        <span>jekyll</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/ruby" data-toggle="tooltip" data-placement="right" title="1">
+        <span>ruby</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/scripts" data-toggle="tooltip" data-placement="right" title="1">
+        <span>scripts</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/syncthing" data-toggle="tooltip" data-placement="right" title="1">
+        <span>syncthing</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/timeshift" data-toggle="tooltip" data-placement="right" title="1">
+        <span>timeshift</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/zwave" data-toggle="tooltip" data-placement="right" title="1">
+        <span>zwave</span></a></li>
+    
+  </ul>
+</div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+          <footer class="footer-distributed">
+      <div class="container">
+        <div class="footer">
+          <p>Jeremy Gillula &copy; 2022
+          <br>Theme: <a href="https://github.com/streetturtle/jekyll-clean-dark">Jekyll Clean Dark</a> with modifications</p>
+        </div>
+      </div>
+    </footer>
+
+    </div>
+  </body>
+</html>

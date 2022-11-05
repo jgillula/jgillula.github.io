@@ -1,0 +1,308 @@
+
+
+
+
+
+
+
+
+
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Random Hacks | Setting Up the Blog </title>
+    <meta name="theme-color" content="#222222"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="/assets/js/jquery.min.js"></script>
+    <script src="/assets/js/popper.min.js"></script>
+    <script src="/assets/js/bootstrap4.min.js"></script>
+    <script src="/assets/js/header.js"></script>
+    <script src="/assets/css/svg-with-js/js/fontawesome-all.js"></script>
+    <link href="/assets/css/bootstrap4.min.css" rel="stylesheet">
+    <link href="/assets/css/theme.css" rel="stylesheet">
+    <link href="/assets/css/syntax.css" rel="stylesheet">
+ </head>
+
+<body>
+
+<script type="text/javascript">
+    WebFontConfig = {
+        google: {
+            families: ['Ubuntu::latin']
+        }
+    };
+    (function () {
+        var wf = document.createElement('script');
+        wf.src = ('https:' == document.location.protocol ? 'https' : 'http') +
+            '://ajax.googleapis.com/ajax/libs/webfont/1/webfont.js';
+        wf.type = 'text/javascript';
+        wf.async = 'true';
+        var s = document.getElementsByTagName('script')[0];
+        s.parentNode.insertBefore(wf, s);
+    })();
+
+
+ function InitCopyPaste(){
+   const codeBlocks = document.querySelectorAll("div.highlighter-rouge");
+
+   codeBlocks.forEach((codeblock, index) => {
+     const code = codeBlocks[index].innerText;
+     const copyCodeButton = document.createElement("button");
+     copyCodeButton.innerHTML = "COPY";
+     copyCodeButton.classList = "btn btn-sm btn-outline-primary";
+     // insert a copy button
+     copyCodeButton.onclick = function () {
+       window.navigator.clipboard.writeText(code);
+       copyCodeButton.innerHTML = "COPIED";
+       copyCodeButton.classList.add("btn-success");
+       copyCodeButton.classList.remove("btn-outline-primary");
+
+       setTimeout(() => {
+         copyCodeButton.innerHTML = "COPY";
+         copyCodeButton.classList.remove("btn-success");
+         copyCodeButton.classList.add("btn-outline-primary");
+       }, 2000);
+     };
+     // make the button
+     codeblock.appendChild(copyCodeButton);
+   });
+ }
+
+ document.addEventListener("DOMContentLoaded", InitCopyPaste);
+</script>
+
+
+<script>
+ $(document).ready(function(){
+
+ const headings = document.querySelectorAll('h1[id], h2[id],h3[id]'); // 1
+   const linkContent = '<i class="fas fa-link"></i>'; // 2
+   for (const heading of headings) { // 3
+                                     const space = document.createElement('span');
+     space.innerHTML=" ";
+     space.className = "header_link_span";
+   const linkIcon = document.createElement('a'); // 4
+   linkIcon.setAttribute('href', `#${heading.id}`); // 5
+   linkIcon.className = "header_link";
+   linkIcon.innerHTML = linkContent; // 6
+   space.appendChild(linkIcon); // 7
+     heading.appendChild(space);
+ }
+   });
+</script>
+
+
+
+<nav class="navbar navbar-expand-lg fixed-top navbar-dark">
+    <div class="container">
+        <a class="navbar-brand offset-md-1" href="/">Random Hacks</a>
+        <button class="navbar-toggler" type="button" data-toggle="collapse"
+                data-target="#navbarNavAltMarkup" aria-controls="navbarNavAltMarkup"
+                aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNavAltMarkup">
+          <div class="navbar-nav">
+            <a class="nav-item nav-link" href="/">Home</a>
+            <a class="nav-item nav-link" href="/about">About</a>
+          </div>
+        </div>
+    </div>
+</nav>
+
+    <div class="wrapper">
+      <div class="content">
+        <div class="container container-center">
+          <div class="row">
+            <div class="col-md-8 offset-md-1">
+              <div class="article">
+                <div class="card">
+                  <h1><a href="/2022/04/setting-up-the-blog/">Setting Up the Blog</a></h1>
+                  <div class="post-meta">
+                    <div class="post-time">
+                      <i class="fa fa-calendar-alt"></i>
+                      <time>16 Apr 2022</time>
+                    </div>
+                    <ul>
+                      
+                        <li><a href="/tag/jekyll">jekyll</a></li>
+                      
+                        <li><a href="/tag/github">github</a></li>
+                      
+                        <li><a href="/tag/ruby">ruby</a></li>
+                      
+                    </ul>
+                  </div>
+                   <div class="post-content"> 
+                     <h1 id="goals">Goals</h1>
+
+<p>I wanted to set up a nice-looking blog to record the documentation of the various custom systems I set up. Turns out that’s harder than it sounds, though not <em>that</em> hard.</p>
+
+<p>I decided to do it using <a href="https://pages.github.com/">GitHub Pages</a>, but using a <a href="https://github.com/streetturtle/jekyll-clean-dark">custom theme</a>.</p>
+
+<h1 id="0-setup-the-repo">0. Setup the repo</h1>
+
+<p>I started by forking <a href="https://github.com/streetturtle/jekyll-clean-dark">this repo</a> and naming the repo <code class="language-plaintext highlighter-rouge">jgillula.github.io</code> per <a href="https://pages.github.com/">the instructions</a>.</p>
+
+<p>I then followed <a href="https://bitbra.in/2021/10/03/host-your-own-blog-for-free-with-custom-domain.html">the instructions here</a> to set up the site. Note that in the <strong>Github Action</strong> section, in the code block for <a href="https://github.com/jgillula/jgillula.github.io/tree/main/.github/workflows/github-pages.yml"><code class="language-plaintext highlighter-rouge">.github/workflows/github-pages.yml</code></a>, you need to replace the <code class="language-plaintext highlighter-rouge">token: $</code> line with <code class="language-plaintext highlighter-rouge">token: ${{ secrets.CUSTOM_GITHUB_TOKEN }}</code>.</p>
+
+<p>Also, since this theme didn’t automatically come with a Gemfile, I had to make one.</p>
+
+<h1 id="1-customizations">1. Customizations</h1>
+
+<p>I made a few edits to the site’s CSS in <a href="https://github.com/jgillula/jgillula.github.io/tree/main/assets/css/theme.scss"><code class="language-plaintext highlighter-rouge">assets/css/theme.scss</code></a>.</p>
+
+<p>I also got pagination working, but by the time I got to write this documentation I forgot how. <a href="https://github.com/jgillula/jgillula.github.io/tree/main/_includes/pagination.html"><code class="language-plaintext highlighter-rouge">_includes/pagination.html</code></a> is a good place to start.</p>
+
+<p>Originally with this theme you could enable a table of contents for a post by setting <code class="language-plaintext highlighter-rouge">toc: true</code> in the front matter section of a post. I decided I’d rather always have the TOC on the side, so in <a href="https://github.com/jgillula/jgillula.github.io/tree/main/_includes/sidebar.html"><code class="language-plaintext highlighter-rouge">_includes/sidebar.html</code></a>, I added code to detect if the layout was a post or not, and show the table of contents if so.</p>
+
+<p>I also wanted to automatically generate links to every header, so I changed <a href="https://github.com/jgillula/jgillula.github.io/tree/main/_includes/header.html"><code class="language-plaintext highlighter-rouge">_includes/header.html</code></a> to include a slightly edited script <a href="https://darn.es/adding-heading-links-to-your-jekyll-blog/">from here</a> to automatically insert links, and again edited the css in <a href="https://github.com/jgillula/jgillula.github.io/tree/main/assets/css/theme.scss"><code class="language-plaintext highlighter-rouge">assets/css/theme.scss</code></a>.</p>
+
+<p>Last, I wanted a nice “copy” button for code blocks, so I copied some code <a href="https://www.blandersoft.com/short/code-block-copy-paste/">from here</a> into <a href="https://github.com/jgillula/jgillula.github.io/tree/main/_includes/header.html"><code class="language-plaintext highlighter-rouge">_includes/header.html</code></a> and <a href="https://github.com/jgillula/jgillula.github.io/tree/main/assets/css/theme.scss"><code class="language-plaintext highlighter-rouge">assets/css/theme.scss</code></a>.</p>
+
+<h1 id="2-update-the-repo">2. Update the repo</h1>
+
+<p>To add new posts, just copy an existing post in the <a href="https://github.com/jgillula/jgillula.github.io/tree/main/_posts"><code class="language-plaintext highlighter-rouge">_posts</code></a> directory, edit it, and then push to Github. The Github action will take care of updating the blog, though it may take a minute.</p>
+
+<p>If you want to see what the post will look like locally before publishing, run</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>bundle <span class="nb">exec </span>jekyll serve
+</code></pre></div></div>
+<p>in the root directory of the repo.</p>
+ 
+                     
+ 
+                   </div> 
+                </div>
+              </div>
+            </div>
+            <div class="col-md-3 hidden-xs">
+              
+<div class="sidebar ">
+  <h2>In This Post:</h2>
+  <ul class="toc">
+  <li><a href="#goals">Goals</a></li>
+  <li><a href="#0-setup-the-repo">0. Setup the repo</a></li>
+  <li><a href="#1-customizations">1. Customizations</a></li>
+  <li><a href="#2-update-the-repo">2. Update the repo</a></li>
+</ul>
+</div>
+
+
+<div class="sidebar ">
+  <h2>Recent Posts</h2>
+  <ul>
+    
+    <li><a href="/2022/11/backups/">Server Backups!</a></li>
+    
+    <li><a href="/2022/10/hosting-your-own-apt-repo-cache/">Hosting Your Own Apt Repo Cache</a></li>
+    
+    <li><a href="/2022/07/getting-home-assistant-to-tell-me-when-to-open-the-windows/">Getting Home Assistant to Tell Me When to Open the Windows</a></li>
+    
+    <li><a href="/2022/07/updating-uncleared-home-assistant-android-notifications-with-appdaemon/">Updating Uncleared Home Assistant Android Notifications with AppDaemon</a></li>
+    
+    <li><a href="/2022/07/automatically-update-parameters-of-a-sleeping-z-wave-entity-in-home-assistant/">Update Parameters of a Sleeping Z-Wave Device in Home Assistant on a Schedule</a></li>
+    
+  </ul>
+</div>
+
+<div class="sidebar">
+  <h2>Tags</h2>
+  <ul class="fa-ul">
+    
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/apache2" data-toggle="tooltip" data-placement="right" title="1">
+        <span>apache2</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/appdaemon" data-toggle="tooltip" data-placement="right" title="1">
+        <span>appdaemon</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/apt" data-toggle="tooltip" data-placement="right" title="1">
+        <span>apt</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/apt-cacher-ng" data-toggle="tooltip" data-placement="right" title="1">
+        <span>apt-cacher-ng</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/apt-clone" data-toggle="tooltip" data-placement="right" title="1">
+        <span>apt-clone</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/automations" data-toggle="tooltip" data-placement="right" title="2">
+        <span>automations</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/backups" data-toggle="tooltip" data-placement="right" title="2">
+        <span>backups</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/blueprint" data-toggle="tooltip" data-placement="right" title="1">
+        <span>blueprint</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/borg" data-toggle="tooltip" data-placement="right" title="1">
+        <span>borg</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/borgmatic" data-toggle="tooltip" data-placement="right" title="1">
+        <span>borgmatic</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/github" data-toggle="tooltip" data-placement="right" title="1">
+        <span>github</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/homeassistant" data-toggle="tooltip" data-placement="right" title="3">
+        <span>homeassistant</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/https" data-toggle="tooltip" data-placement="right" title="1">
+        <span>https</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/jekyll" data-toggle="tooltip" data-placement="right" title="1">
+        <span>jekyll</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/ruby" data-toggle="tooltip" data-placement="right" title="1">
+        <span>ruby</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/scripts" data-toggle="tooltip" data-placement="right" title="1">
+        <span>scripts</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/syncthing" data-toggle="tooltip" data-placement="right" title="1">
+        <span>syncthing</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/timeshift" data-toggle="tooltip" data-placement="right" title="1">
+        <span>timeshift</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/zwave" data-toggle="tooltip" data-placement="right" title="1">
+        <span>zwave</span></a></li>
+    
+  </ul>
+</div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+          <footer class="footer-distributed">
+      <div class="container">
+        <div class="footer">
+          <p>Jeremy Gillula &copy; 2022
+          <br>Theme: <a href="https://github.com/streetturtle/jekyll-clean-dark">Jekyll Clean Dark</a> with modifications</p>
+        </div>
+      </div>
+    </footer>
+
+    </div>
+  </body>
+</html>

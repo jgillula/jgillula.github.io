@@ -1,0 +1,723 @@
+
+
+
+
+
+
+
+
+
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Random Hacks | Server Backups! </title>
+    <meta name="theme-color" content="#222222"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="/assets/js/jquery.min.js"></script>
+    <script src="/assets/js/popper.min.js"></script>
+    <script src="/assets/js/bootstrap4.min.js"></script>
+    <script src="/assets/js/header.js"></script>
+    <script src="/assets/css/svg-with-js/js/fontawesome-all.js"></script>
+    <link href="/assets/css/bootstrap4.min.css" rel="stylesheet">
+    <link href="/assets/css/theme.css" rel="stylesheet">
+    <link href="/assets/css/syntax.css" rel="stylesheet">
+ </head>
+
+<body>
+
+<script type="text/javascript">
+    WebFontConfig = {
+        google: {
+            families: ['Ubuntu::latin']
+        }
+    };
+    (function () {
+        var wf = document.createElement('script');
+        wf.src = ('https:' == document.location.protocol ? 'https' : 'http') +
+            '://ajax.googleapis.com/ajax/libs/webfont/1/webfont.js';
+        wf.type = 'text/javascript';
+        wf.async = 'true';
+        var s = document.getElementsByTagName('script')[0];
+        s.parentNode.insertBefore(wf, s);
+    })();
+
+
+ function InitCopyPaste(){
+   const codeBlocks = document.querySelectorAll("div.highlighter-rouge");
+
+   codeBlocks.forEach((codeblock, index) => {
+     const code = codeBlocks[index].innerText;
+     const copyCodeButton = document.createElement("button");
+     copyCodeButton.innerHTML = "COPY";
+     copyCodeButton.classList = "btn btn-sm btn-outline-primary";
+     // insert a copy button
+     copyCodeButton.onclick = function () {
+       window.navigator.clipboard.writeText(code);
+       copyCodeButton.innerHTML = "COPIED";
+       copyCodeButton.classList.add("btn-success");
+       copyCodeButton.classList.remove("btn-outline-primary");
+
+       setTimeout(() => {
+         copyCodeButton.innerHTML = "COPY";
+         copyCodeButton.classList.remove("btn-success");
+         copyCodeButton.classList.add("btn-outline-primary");
+       }, 2000);
+     };
+     // make the button
+     codeblock.appendChild(copyCodeButton);
+   });
+ }
+
+ document.addEventListener("DOMContentLoaded", InitCopyPaste);
+</script>
+
+
+<script>
+ $(document).ready(function(){
+
+ const headings = document.querySelectorAll('h1[id], h2[id],h3[id]'); // 1
+   const linkContent = '<i class="fas fa-link"></i>'; // 2
+   for (const heading of headings) { // 3
+                                     const space = document.createElement('span');
+     space.innerHTML=" ";
+     space.className = "header_link_span";
+   const linkIcon = document.createElement('a'); // 4
+   linkIcon.setAttribute('href', `#${heading.id}`); // 5
+   linkIcon.className = "header_link";
+   linkIcon.innerHTML = linkContent; // 6
+   space.appendChild(linkIcon); // 7
+     heading.appendChild(space);
+ }
+   });
+</script>
+
+
+
+<nav class="navbar navbar-expand-lg fixed-top navbar-dark">
+    <div class="container">
+        <a class="navbar-brand offset-md-1" href="/">Random Hacks</a>
+        <button class="navbar-toggler" type="button" data-toggle="collapse"
+                data-target="#navbarNavAltMarkup" aria-controls="navbarNavAltMarkup"
+                aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNavAltMarkup">
+          <div class="navbar-nav">
+            <a class="nav-item nav-link" href="/">Home</a>
+            <a class="nav-item nav-link" href="/about">About</a>
+          </div>
+        </div>
+    </div>
+</nav>
+
+    <div class="wrapper">
+      <div class="content">
+        <div class="container container-center">
+          <div class="row">
+            <div class="col-md-8 offset-md-1">
+              <div class="article">
+                <div class="card">
+                  <h1><a href="/2022/11/backups/">Server Backups!</a></h1>
+                  <div class="post-meta">
+                    <div class="post-time">
+                      <i class="fa fa-calendar-alt"></i>
+                      <time>05 Nov 2022</time>
+                    </div>
+                    <ul>
+                      
+                        <li><a href="/tag/backups">backups</a></li>
+                      
+                        <li><a href="/tag/borg">borg</a></li>
+                      
+                        <li><a href="/tag/borgmatic">borgmatic</a></li>
+                      
+                        <li><a href="/tag/apt-clone">apt-clone</a></li>
+                      
+                        <li><a href="/tag/timeshift">timeshift</a></li>
+                      
+                    </ul>
+                  </div>
+                   <div class="post-content"> 
+                     <h1 id="getting-started">Getting started</h1>
+
+<p>Backups are important. I’m not going to lecture any about that here, just jump straight to how I made my backup plan for my home server, and then how I implemented it.</p>
+
+<p>The first step to a good backup plan is knowing what sort of scenarios you want to recover from. That will then dictate what data needs to be backed up, and how you should back it up. Here’s what I came up with for my home server.</p>
+
+<h2 id="recovery-scenarios">Recovery Scenarios</h2>
+
+<p>For my home server, there are five types of scenarios I want to be able to recover from:</p>
+
+<ul>
+  <li><strong>Unwanted package installation/upgrade</strong> — I’m picky about the software running on my machine, but I also want to be able to try new updates. That means sometimes I want to be able to roll back installation or upgrades of <code class="language-plaintext highlighter-rouge">apt</code> packages.</li>
+  <li><strong>Catastrophic package installation/upgrade</strong> — Although it’s less common these days, there’s always the chance that I do something to my server that requires more than just a simple package rollback. For example, maybe I mess up grub and the whole server won’t boot, or an upgrade to a newer release of the OS just doesn’t work for me. In that case, I need a way to revert the entire system back to a known good state.</li>
+  <li><strong>Accidental file edits/deletion</strong> — One big danger when I’m mucking about on my server is that I bork a configuration file, or delete some important personal file I meant to have around.</li>
+  <li><strong>Local disk failure</strong> — My server’s primary HDD is a single regular old SATA HDD. If it dies, I want to be able to get a new one and restore my entire system, including any personal files that were stored there.</li>
+  <li><strong>Local natural disaster</strong> &amp;mdash A subtly different failure scenario is if there’s some natural disaster and not just my server, but everything in my home is lost (think earthquake or tornado or fire). In that case, I’ll need some sort of offsite backups so I can restore everything.</li>
+</ul>
+
+<h2 id="data-types">Data Types</h2>
+
+<p>Given the scenarios described above, I’ve divided the data on my server into the following categories:</p>
+<ul>
+  <li><strong>Package info</strong> — This is the list of currently installed packages (and their versions).</li>
+  <li><strong>Package files</strong> — The actual <code class="language-plaintext highlighter-rouge">.deb</code> files I need to install the packages. (Some people may think having the <code class="language-plaintext highlighter-rouge">.deb</code> files is overkill since they can probably be found somewhere on the Internet. Unfortunately while many repos continue to host the files for old versions of their packages, their repos don’t actually include them in their <code class="language-plaintext highlighter-rouge">Release</code> files. That makes finding them a chore, and since storage space is cheap, I’d rather just keep them myself.)</li>
+  <li><strong>Config files</strong> — Since Linux keeps things nice and neat, I’ll just assume this is everything in <code class="language-plaintext highlighter-rouge">/etc</code></li>
+  <li><strong>System data</strong> — More or less everything else on my system except home directories.</li>
+  <li><strong>Home directories</strong> — Obviously I want to back up these, but I might want to back them up separately from other things.</li>
+</ul>
+
+<p>I also have a couple more unique data types that may not apply for most people:</p>
+<ul>
+  <li><strong>Application data</strong> — My server runs <a href="https://github.com/paperless-ngx/paperless-ngx#readme">Paperless-ngx</a>, and it stores a lot of very important, very unreplaceable documents. I want to take special care that these documents are backed up (and their metadata from Paperless-ngx, which it took me a while to assign correctly).</li>
+  <li><strong>Media</strong> — My server contains lots of music, movies, and TV shows ripped from my large CD/DVD collection for personal use. There’s also some unique music or TV shows in there that I don’t have on CD/DVD, but the vast majority of it I do.</li>
+  <li><strong>Personal data not in home directories</strong> — My server also contains a lot of data on a RAID array, like old school files or projects from ten years ago.</li>
+</ul>
+
+<h2 id="recovery-matrix">Recovery matrix</h2>
+
+<p>Given all this, I found it helpful to create a recovery matrix to help me decided which types of data I wanted to be able to recover from which types of scenario.</p>
+
+<style>
+.recovery_matrix tr:nth-child(1) { font-weight: bold; }
+.recovery_matrix tr td:nth-child(1) { font-weight: bold; text-align: right; }
+.recovery_matrix tr td:not(:first-child) { text-align: center; }
+</style>
+
+<table class="recovery_matrix">
+  <tbody>
+    <tr>
+      <td> </td>
+      <td>Unwanted package installation or upgrade</td>
+      <td>Catastrophic package installation or upgrade</td>
+      <td>Accidental file edits or deletion</td>
+      <td>Local disk failure</td>
+      <td>Local natural disaster</td>
+    </tr>
+    <tr>
+      <td>Package info</td>
+      <td>Yes</td>
+      <td>Yes</td>
+      <td> </td>
+      <td>Yes</td>
+      <td>Yes</td>
+    </tr>
+    <tr>
+      <td>Package files</td>
+      <td>Yes</td>
+      <td>Yes</td>
+      <td> </td>
+      <td>Yes</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>Config files</td>
+      <td>Yes</td>
+      <td>Yes</td>
+      <td>Yes</td>
+      <td>Yes</td>
+      <td>Yes</td>
+    </tr>
+    <tr>
+      <td>System data</td>
+      <td> </td>
+      <td>Yes</td>
+      <td>Yes</td>
+      <td>Yes</td>
+      <td>Yes</td>
+    </tr>
+    <tr>
+      <td>Home directories</td>
+      <td> </td>
+      <td> </td>
+      <td>Yes</td>
+      <td>Yes</td>
+      <td>Yes</td>
+    </tr>
+    <tr>
+      <td>Application data</td>
+      <td> </td>
+      <td> </td>
+      <td>Yes</td>
+      <td>Yes</td>
+      <td>Yes</td>
+    </tr>
+    <tr>
+      <td>Media</td>
+      <td> </td>
+      <td> </td>
+      <td>Yes</td>
+      <td>Yes</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>Personal data not in home directories</td>
+      <td> </td>
+      <td> </td>
+      <td>Yes</td>
+      <td>Yes</td>
+      <td>Yes</td>
+    </tr>
+  </tbody>
+</table>
+
+<h1 id="the-backup-plan">The backup plan</h1>
+
+<p>The next step is figuring out what tools to use to back up all this data so I can recover from the given scenarios. One interesting thing I read in my backup research is that it’s important not just to have backups to multiple locations, but also <a href="https://www.reddit.com/r/linuxmasterrace/comments/ubdyss/comment/i65i91w/">to use different backup software for redundancy</a>. Using redundant backup software also helps because even though some software may technically work in a given recovery scenario, different software may make recovery easier. (For example, <code class="language-plaintext highlighter-rouge">timeshift</code> below can technically let me recover from borking my <code class="language-plaintext highlighter-rouge">/etc</code> directory, but <code class="language-plaintext highlighter-rouge">etckeeper</code> may make it easier so I don’t have to restore an entire snapshot or go spelunking into my snapshots to figure out which config files changed.)</p>
+
+<p>Thus instead of listing each data type or recovery scenario, I’ll list which backup tools I’m using, and then note which recovery scenarios and data types they apply to.</p>
+
+<h2 id="apt-rollback"><code class="language-plaintext highlighter-rouge">apt-rollback</code></h2>
+
+<p>I was originally going to try to use <a href="https://github.com/mvo5/apt-clone"><code class="language-plaintext highlighter-rouge">apt-clone</code></a>, but I’ve found it just doesn’t work very well.</p>
+
+<p>Instead, for now I’m relying on a script called <a href="https://github.com/jgillula/apt-rollback#readme"><code class="language-plaintext highlighter-rouge">apt-rollback</code></a>. It works OK in a pinch, but it would be nice if I could better see exactly what state it’s going to try to revert to (maybe all combined), and also if I could check ahead of time and make sure all the packages are available. I guess I have a future project to work on.</p>
+
+<p><code class="language-plaintext highlighter-rouge">apt-rollback</code> covers:</p>
+<ul>
+  <li><strong>Package info</strong>:
+    <ul>
+      <li><strong>Unwanted package installation/upgrade</strong> — Obviously, <code class="language-plaintext highlighter-rouge">apt-rollback</code> can help me rollback unwanted installations/upgrades</li>
+    </ul>
+  </li>
+</ul>
+
+<h2 id="etckeeper"><code class="language-plaintext highlighter-rouge">etckeeper</code></h2>
+
+<p><a href="https://etckeeper.branchable.com/"><code class="language-plaintext highlighter-rouge">etckeeper</code></a> automatically maintains <code class="language-plaintext highlighter-rouge">/etc</code> in version control (e.g. <code class="language-plaintext highlighter-rouge">git</code>), so you can always roll back a change, see diffs, etc. (Pun intended.)</p>
+
+<p>For my installation I didn’t do any special configuration; I just used it out of the box.</p>
+
+<p><code class="language-plaintext highlighter-rouge">etckeeper</code> covers:</p>
+<ul>
+  <li><strong>Config files</strong>:
+    <ul>
+      <li><strong>Unwanted package installation/upgrade</strong> — <code class="language-plaintext highlighter-rouge">etckeeper</code> can help restore earlier versions of config files, if they get overwritten during an upgrade</li>
+      <li><strong>Catastrophic package installation/upgrade</strong> — <code class="language-plaintext highlighter-rouge">etckeeper</code> can help restore later versions of config files, if the snapshot I have is older than I want.</li>
+      <li><strong>Accidental file edits/deletion</strong> — <code class="language-plaintext highlighter-rouge">etckeeper</code> shines at being able to restore earlier versions of config files that I may have accidentally edited or deleted.</li>
+    </ul>
+  </li>
+</ul>
+
+<h2 id="timeshift"><code class="language-plaintext highlighter-rouge">timeshift</code></h2>
+
+<p>Sometimes you don’t want to deal with the hassle of figuring out which package version you should roll back to or finding the right version of the config file. Sometimes you just want to roll back everything on the machine to an earlier point in time. For that, there’s <a href="https://github.com/linuxmint/timeshift"><code class="language-plaintext highlighter-rouge">timeshift</code></a>. Timeshift takes a snapshot of basically everything on the machine except for user home directories, using <code class="language-plaintext highlighter-rouge">rsync</code>, and hard links to save space. I also made sure to exclude the following directories:</p>
+
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">/var/log</code> since it changes a ton, and I haven’t yet needed a backup of my log files</li>
+  <li><code class="language-plaintext highlighter-rouge">/var/local/paperless-ngx</code> for reasons described below</li>
+  <li><code class="language-plaintext highlighter-rouge">/var/tmp</code> because of course I don’t need backups of that</li>
+  <li><code class="language-plaintext highlighter-rouge">/var/cache</code> because presumably that can be rebuilt</li>
+  <li><code class="language-plaintext highlighter-rouge">/swap.img</code> because I don’t need a backup of my swap file</li>
+  <li><code class="language-plaintext highlighter-rouge">/var/backups/apt-clone</code> because if I need to restore to an earlier snapshot, I want to keep all my <code class="language-plaintext highlighter-rouge">apt-clone</code> backups untouched.</li>
+</ul>
+
+<p><code class="language-plaintext highlighter-rouge">timeshift</code> is essentially my “restore a known good point in time for my system” backup tool, and covers:</p>
+<ul>
+  <li><strong>Config files</strong>
+    <ul>
+      <li><strong>Catastrophic package installation/upgrade</strong></li>
+    </ul>
+  </li>
+  <li><strong>System data</strong>
+    <ul>
+      <li><strong>Catastrophic package installation/upgrade</strong></li>
+    </ul>
+  </li>
+</ul>
+
+<h2 id="borg-and-borgmatic"><code class="language-plaintext highlighter-rouge">borg</code> and <code class="language-plaintext highlighter-rouge">borgmatic</code></h2>
+<p><a href="https://borgbackup.readthedocs.io/en/stable/index.html"><code class="language-plaintext highlighter-rouge">borg</code></a> is a mature backup system that uses encryption, deduplication, and all the other ‘tions you want in a backup system. A lot of people also use restic, but after doing <a href="https://www.reddit.com/r/linuxquestions/comments/uasec0/comment/i63bdvf/?utm_source=share&amp;utm_medium=web2x&amp;context=3">some research</a> (e.g. <a href="https://www.reddit.com/r/BorgBackup/comments/v3bwfg/why_should_i_switch_from_restic_to_borg/">this excellent comparison between the two</a> I decided to stick with Borg. My primary reason was that it has decent GUI support, and I want to be able to use the same system on my laptops (where a GUI will be more important).</p>
+
+<p>In order to make running it on my server easy, I use <a href="https://torsion.org/borgmatic/"><code class="language-plaintext highlighter-rouge">borgmatic</code></a> to save some configuration files so I don’t have to constantly type in parameters/arguments.</p>
+
+<p>Roughly following <a href="https://borgbackup.readthedocs.io/en/stable/deployment/central-backup-server.html">the instructions here</a>, I setup a borg user/group on my server, and then setup a repo directory on my RAID array for my server to back up to complete with SSH key (belonging to root, since all the borgmatic backups run as root). I then setup three repos.</p>
+
+<p>All of the repos use the following retention plan:</p>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Number of daily archives to keep.</span>
+<span class="na">keep_daily</span><span class="pi">:</span> <span class="m">7</span>
+
+<span class="c1"># Number of weekly archives to keep.</span>
+<span class="na">keep_weekly</span><span class="pi">:</span> <span class="m">4</span>
+
+<span class="c1"># Number of monthly archives to keep.</span>
+<span class="na">keep_monthly</span><span class="pi">:</span> <span class="m">12</span>
+
+<span class="c1"># Number of yearly archives to keep.</span>
+<span class="na">keep_yearly</span><span class="pi">:</span> <span class="m">5</span>
+</code></pre></div></div>
+
+<h3 id="borg-system-repo"><code class="language-plaintext highlighter-rouge">borg</code> system repo</h3>
+
+<p>The <code class="language-plaintext highlighter-rouge">borg</code> system repo is configured to backup everything under the root directory, with the following <a href="https://borgbackup.readthedocs.io/en/stable/usage/help.html#borg-help-patterns">exceptions</a>:</p>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code>    <span class="na">patterns</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="s">R /</span>
+      <span class="pi">-</span> <span class="s1">'</span><span class="s">-</span><span class="nv"> </span><span class="s">/home/'</span>
+      <span class="pi">-</span> <span class="s1">'</span><span class="s">!</span><span class="nv"> </span><span class="s">/dev/'</span>
+      <span class="pi">-</span> <span class="s1">'</span><span class="s">!</span><span class="nv"> </span><span class="s">/lost+found'</span>
+      <span class="pi">-</span> <span class="s1">'</span><span class="s">!</span><span class="nv"> </span><span class="s">/mnt/'</span>
+      <span class="pi">-</span> <span class="s1">'</span><span class="s">!</span><span class="nv"> </span><span class="s">/media/'</span>
+      <span class="pi">-</span> <span class="s1">'</span><span class="s">!</span><span class="nv"> </span><span class="s">/proc/'</span>
+      <span class="pi">-</span> <span class="s1">'</span><span class="s">!</span><span class="nv"> </span><span class="s">/run/'</span>
+      <span class="pi">-</span> <span class="s1">'</span><span class="s">!</span><span class="nv"> </span><span class="s">/sys/'</span>
+      <span class="pi">-</span> <span class="s1">'</span><span class="s">-</span><span class="nv"> </span><span class="s">/tmp/'</span>
+      <span class="pi">-</span> <span class="s1">'</span><span class="s">-</span><span class="nv"> </span><span class="s">/var/log/'</span>
+      <span class="pi">-</span> <span class="s1">'</span><span class="s">-</span><span class="nv"> </span><span class="s">/var/cache/*'</span>
+      <span class="pi">-</span> <span class="s1">'</span><span class="s">-</span><span class="nv"> </span><span class="s">/swap.img'</span>
+      <span class="pi">-</span> <span class="s1">'</span><span class="s">-</span><span class="nv"> </span><span class="s">**/__pycache__/'</span>
+</code></pre></div></div>
+
+<p>Basically, it ignores home directories, <code class="language-plaintext highlighter-rouge">/tmp/</code>, <code class="language-plaintext highlighter-rouge">/var/log/</code>, <code class="language-plaintext highlighter-rouge">/var/cache/</code>, and things that aren’t normal files. I have not excluded <code class="language-plaintext highlighter-rouge">/etc</code> so there’s redundancy with <code class="language-plaintext highlighter-rouge">etckeeper</code>. I have also not excluded <code class="language-plaintext highlighter-rouge">/timeshift</code>, so borg will keep a backup of all of my snapshots. Given that, it covers:</p>
+
+<ul>
+  <li><strong>Package info</strong>
+    <ul>
+      <li><strong>Local disk failure</strong> — All of the <code class="language-plaintext highlighter-rouge">apt-clone</code> files are backed up in borg, and since the <code class="language-plaintext highlighter-rouge">borg</code> repo is stored on RAID they’re safe from local disk failure.</li>
+    </ul>
+  </li>
+  <li><strong>Config files</strong>
+    <ul>
+      <li><strong>Local disk failure</strong> — Since the entire <code class="language-plaintext highlighter-rouge">/etc</code> directory is included, and the <code class="language-plaintext highlighter-rouge">borg</code> repo is stored on RAID</li>
+    </ul>
+  </li>
+  <li><strong>System data</strong>
+    <ul>
+      <li><strong>Accidental file edits/deletion</strong> — I can always poke around in an old <code class="language-plaintext highlighter-rouge">borg</code> archive to find a file I deleted</li>
+      <li><strong>Local disk failure</strong> — Since <code class="language-plaintext highlighter-rouge">borg</code> includes <code class="language-plaintext highlighter-rouge">/timeshift</code>, and the <code class="language-plaintext highlighter-rouge">borg</code> repo is stored on RAID, I can always recover from a <code class="language-plaintext highlighter-rouge">timeshift</code> snapshot in <code class="language-plaintext highlighter-rouge">borg</code> if my HDD dies</li>
+    </ul>
+  </li>
+</ul>
+
+<h3 id="borg-home_dirs-repo"><code class="language-plaintext highlighter-rouge">borg</code> home_dirs repo</h3>
+
+<p>The home_dirs repo is self-explanatory: it backs up the home directories on the server. I decided to break them out since I’m less likely to need to be able to recover data from a home directory simultaneously with system data, and working with smaller repos is easier. It covers:</p>
+<ul>
+  <li><strong>Home directories</strong>
+    <ul>
+      <li><strong>Accidental file edits/deletion</strong></li>
+      <li><strong>Local disk failure</strong> — Since this repo is stored on RAID</li>
+    </ul>
+  </li>
+</ul>
+
+<h3 id="borg-paperless-repo"><code class="language-plaintext highlighter-rouge">borg</code> paperless repo</h3>
+
+<p>In order to keep both the data stored in Paperless and its configuration, I set up a separate repo. (As with the home_dirs repo, the motivation is that working with smaller repos is faster/easier.) It backs up:</p>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">location</span><span class="pi">:</span>
+    <span class="na">source_directories</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="s">/media/raidencrypted/backups/paperless_backup</span>
+        <span class="pi">-</span> <span class="s">/var/local/paperless-ngx</span>
+        <span class="pi">-</span> <span class="s">/var/local/paperless-ngx-postprocessor/rulesets.d</span>
+        <span class="pi">-</span> <span class="s">/etc/apache2/sites-available</span>
+</code></pre></div></div>
+<p>where <code class="language-plaintext highlighter-rouge">/media/raidencrypted/backups/paperless_backup</code> is set as my export directory for paperless, <code class="language-plaintext highlighter-rouge">/var/local/paperless-ngx</code> is where Paperless is installed, <code class="language-plaintext highlighter-rouge">/var/local/paperless-ngx-postprocessor/rulesets.d</code> is the directory for my <a href="https://github.com/jgillula/paperless-ngx-postprocessor#readme">Paperless-ngx-postprocesser</a> rulesets.</p>
+
+<p>It uses the include/exclude patterns:</p>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code>    <span class="na">patterns</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="s">R /</span>
+      <span class="pi">-</span> <span class="s1">'</span><span class="s">-</span><span class="nv"> </span><span class="s">/var/local/paperless-ngx'</span>
+      <span class="pi">-</span> <span class="s1">'</span><span class="s">+</span><span class="nv"> </span><span class="s">pf:/var/local/paperless-ngx/docker-compose.env'</span>
+      <span class="pi">-</span> <span class="s1">'</span><span class="s">+</span><span class="nv"> </span><span class="s">pf:/var/local/paperless-ngx/docker-compose.yml'</span>
+      <span class="pi">-</span> <span class="s1">'</span><span class="s">-</span><span class="nv"> </span><span class="s">/etc/apache2/sites-available'</span>
+      <span class="pi">-</span> <span class="s1">'</span><span class="s">+</span><span class="nv"> </span><span class="s">pf:/etc/apache2/sites-available/paperless-subdomain.conf'</span>
+</code></pre></div></div>
+<p>This allows me to backup just the <code class="language-plaintext highlighter-rouge">docker-compose.env</code> and <code class="language-plaintext highlighter-rouge">docker-compose.yml</code> files without anything else in that directory, as well as just my <code class="language-plaintext highlighter-rouge">apache2</code> config for paperless.</p>
+
+<p>Of course before I can get a backup, I need to export all the documents and metadata from Paperless-ngx by doing:</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">cd</span> /var/local/paperless-ngx
+/usr/bin/docker-compose <span class="nb">exec</span> <span class="nt">-T</span> webserver document_exporter ../export
+</code></pre></div></div>
+
+<p>With this in place, the paperless <code class="language-plaintext highlighter-rouge">borg</code> repo covers:</p>
+<ul>
+  <li><strong>Application data</strong>
+    <ul>
+      <li><strong>Accidental file edits/deletion</strong> &amp;mdash If I accidentally delete a file from Paperless, I have <code class="language-plaintext highlighter-rouge">borg</code> repo I can use to restore it.</li>
+      <li><strong>Local disk failure</strong> &amp;mdash Since the Paperless <code class="language-plaintext highlighter-rouge">borg</code> repo is stored on my RAID array, it’s safe from local disk failure.</li>
+    </ul>
+  </li>
+</ul>
+
+<h2 id="rclone"><code class="language-plaintext highlighter-rouge">rclone</code></h2>
+
+<p>So far, all the backup tools I’m using either only make local backups or are configured to make local backups only. <code class="language-plaintext highlighter-rouge">rclone</code> and <a href="https://www.borgbase.com/">BorgBase</a> to the rescue.</p>
+
+<p>First, I followed <a href="https://docs.borgbase.com/setup/import/#import-existing-repository">the instructions on BorgBase’s documentation</a> about how to setup the BorgBase repositories to receive repos using <code class="language-plaintext highlighter-rouge">rclone</code>. I then created an <code class="language-plaintext highlighter-rouge">rclone</code> config file as described a little further down that page, with a separate section for each repo I want to back up, and stored it in <code class="language-plaintext highlighter-rouge">/etc/borgmatic/rclone.conf</code>.</p>
+
+<p>Syncing the repo is then just a matter of running</p>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">sudo </span>rclone <span class="nb">sync</span> <span class="nt">--config</span> /etc/borgmatic/rclone.conf /media/raidencrypted/backups/borg-backup/repos/server.local/<span class="nv">$repo_name</span> borgbase-server-<span class="nv">$repo_name</span>:repo
+</code></pre></div></div>
+
+<p>The initial sync took several days for a ~36GB repo, but subsequent updates only take about 20 minutes.</p>
+
+<h2 id="raid-storage">RAID storage</h2>
+
+<p>Finally, as I’ve mentioned a couple times I have a local RAID array plugged into my server. It’s not strictly a backup mechanism, but it does help cover the following data types and recovery scenarios:</p>
+
+<ul>
+  <li><strong>Media</strong>
+    <ul>
+      <li><strong>Local disk failure</strong></li>
+    </ul>
+  </li>
+  <li><strong>Personal data not in home directories</strong>
+    <ul>
+      <li><strong>Local disk failure</strong></li>
+    </ul>
+  </li>
+</ul>
+
+<h1 id="putting-it-all-together">Putting it all together</h1>
+
+<p>One thing you may have noticed is that <code class="language-plaintext highlighter-rouge">borg</code> is used to provide some redundancy both for <code class="language-plaintext highlighter-rouge">timeshift</code> and Paperless. To make sure those three play nicely, I use the <a href="https://gist.github.com/jgillula/36de2f8a41a27cdaf148ca722342bffe#file-run-backups-cron"><code class="language-plaintext highlighter-rouge">run_backups.sh</code></a> simple bash script I wrote. It exports data from Paperless, tries to run <code class="language-plaintext highlighter-rouge">timeshift</code> up to 10 times to make sure it’s taken a snapshot, and then runs each <code class="language-plaintext highlighter-rouge">borg</code> backup in turn. As a bonus, it compares the sha256 hash of the <code class="language-plaintext highlighter-rouge">manifest.json</code> that Paperless exports to see if anything has changed, and skips that backup if it’s not necessary.</p>
+
+<p>To ensure I get backups once a day (well, really early morning), I use a <a href="https://gist.github.com/jgillula/36de2f8a41a27cdaf148ca722342bffe#file-run_backups-sh"><code class="language-plaintext highlighter-rouge">cron</code> job</a> dropped in <code class="language-plaintext highlighter-rouge">/etc/cron.d/</code> to call the <code class="language-plaintext highlighter-rouge">run_backups.sh</code> script and record its output to the syslog.</p>
+
+<h1 id="whats-missing">What’s missing</h1>
+
+<p>One file type I haven’t covered in this post is package files. My plan for covering that is <a href="/2022/10/hosting-your-own-apt-repo-cache/">in a previous post</a>, and it basically involves <a href="https://syncthing.net">Syncthing</a> and the <a href="https://github.com/jgillula/apt-repo-manager#readme"><code class="language-plaintext highlighter-rouge">apt-repo-manager</code></a> script I wrote.</p>
+
+<p>I also haven’t gotten around to backing up my media or personal data not in home directories yet. I’ll probably add that to <code class="language-plaintext highlighter-rouge">borg</code> once I clean out some of the stuff I definitely don’t need, and then use <code class="language-plaintext highlighter-rouge">rclone</code> to back it up to the cloud.</p>
+
+<h1 id="the-end">The end</h1>
+
+<p>The final table showing data types, recovery scenarios, and backup tools is below.</p>
+
+<table class="recovery_matrix">
+  <tbody>
+    <tr>
+      <td> </td>
+      <td>Unwanted package installation/upgrade</td>
+      <td>Catastrophic package installation/upgrade</td>
+      <td>Accidental file edits/deletion</td>
+      <td>Local disk failure</td>
+      <td>Local natural disaster</td>
+    </tr>
+    <tr>
+      <td>Package info</td>
+      <td>apt-rollback</td>
+      <td>Not yet backed up</td>
+      <td> </td>
+      <td>borg system repo</td>
+      <td>rclone</td>
+    </tr>
+    <tr>
+      <td>Package files</td>
+      <td>Syncthing,<br />apt-repo-manager</td>
+      <td>Syncthing,<br />apt-repo-manager</td>
+      <td> </td>
+      <td>RAID storage</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>Config files</td>
+      <td>etckeeper</td>
+      <td>etckeeper</td>
+      <td>etckeeper</td>
+      <td>borg system repo</td>
+      <td>rclone</td>
+    </tr>
+    <tr>
+      <td>System data</td>
+      <td> </td>
+      <td>timeshift</td>
+      <td>timeshift,<br />borg system repo</td>
+      <td>borg system repo</td>
+      <td>rclone</td>
+    </tr>
+    <tr>
+      <td>Home directories</td>
+      <td> </td>
+      <td> </td>
+      <td>borg home_dirs repo</td>
+      <td>borg home_dirs repo</td>
+      <td>rclone</td>
+    </tr>
+    <tr>
+      <td>Application data</td>
+      <td> </td>
+      <td> </td>
+      <td>borg paperless repo</td>
+      <td>borg paperless repo</td>
+      <td>rclone</td>
+    </tr>
+    <tr>
+      <td>Media</td>
+      <td> </td>
+      <td> </td>
+      <td>Not yet backed up</td>
+      <td>RAID storage</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>Personal data not in home directories</td>
+      <td> </td>
+      <td> </td>
+      <td>Not yet backed up</td>
+      <td>RAID storage</td>
+      <td>Not yet backed up</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>And that’s it! That’s how I roll my backups, and now I just hope I never need them.</p>
+ 
+                     
+ 
+                   </div> 
+                </div>
+              </div>
+            </div>
+            <div class="col-md-3 hidden-xs">
+              
+<div class="sidebar ">
+  <h2>In This Post:</h2>
+  <ul class="toc">
+  <li><a href="#getting-started">Getting started</a>
+    <ul>
+      <li><a href="#recovery-scenarios">Recovery Scenarios</a></li>
+      <li><a href="#data-types">Data Types</a></li>
+      <li><a href="#recovery-matrix">Recovery matrix</a></li>
+    </ul>
+  </li>
+  <li><a href="#the-backup-plan">The backup plan</a>
+    <ul>
+      <li><a href="#apt-rollback"><code class="language-plaintext highlighter-rouge">apt-rollback</code></a></li>
+      <li><a href="#etckeeper"><code class="language-plaintext highlighter-rouge">etckeeper</code></a></li>
+      <li><a href="#timeshift"><code class="language-plaintext highlighter-rouge">timeshift</code></a></li>
+      <li><a href="#borg-and-borgmatic"><code class="language-plaintext highlighter-rouge">borg</code> and <code class="language-plaintext highlighter-rouge">borgmatic</code></a>
+        <ul>
+          <li><a href="#borg-system-repo"><code class="language-plaintext highlighter-rouge">borg</code> system repo</a></li>
+          <li><a href="#borg-home_dirs-repo"><code class="language-plaintext highlighter-rouge">borg</code> home_dirs repo</a></li>
+          <li><a href="#borg-paperless-repo"><code class="language-plaintext highlighter-rouge">borg</code> paperless repo</a></li>
+        </ul>
+      </li>
+      <li><a href="#rclone"><code class="language-plaintext highlighter-rouge">rclone</code></a></li>
+      <li><a href="#raid-storage">RAID storage</a></li>
+    </ul>
+  </li>
+  <li><a href="#putting-it-all-together">Putting it all together</a></li>
+  <li><a href="#whats-missing">What’s missing</a></li>
+  <li><a href="#the-end">The end</a></li>
+</ul>
+</div>
+
+
+<div class="sidebar ">
+  <h2>Recent Posts</h2>
+  <ul>
+    
+    <li><a href="/2022/11/backups/">Server Backups!</a></li>
+    
+    <li><a href="/2022/10/hosting-your-own-apt-repo-cache/">Hosting Your Own Apt Repo Cache</a></li>
+    
+    <li><a href="/2022/07/getting-home-assistant-to-tell-me-when-to-open-the-windows/">Getting Home Assistant to Tell Me When to Open the Windows</a></li>
+    
+    <li><a href="/2022/07/updating-uncleared-home-assistant-android-notifications-with-appdaemon/">Updating Uncleared Home Assistant Android Notifications with AppDaemon</a></li>
+    
+    <li><a href="/2022/07/automatically-update-parameters-of-a-sleeping-z-wave-entity-in-home-assistant/">Update Parameters of a Sleeping Z-Wave Device in Home Assistant on a Schedule</a></li>
+    
+  </ul>
+</div>
+
+<div class="sidebar">
+  <h2>Tags</h2>
+  <ul class="fa-ul">
+    
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/apache2" data-toggle="tooltip" data-placement="right" title="1">
+        <span>apache2</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/appdaemon" data-toggle="tooltip" data-placement="right" title="1">
+        <span>appdaemon</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/apt" data-toggle="tooltip" data-placement="right" title="1">
+        <span>apt</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/apt-cacher-ng" data-toggle="tooltip" data-placement="right" title="1">
+        <span>apt-cacher-ng</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/apt-clone" data-toggle="tooltip" data-placement="right" title="1">
+        <span>apt-clone</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/automations" data-toggle="tooltip" data-placement="right" title="2">
+        <span>automations</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/backups" data-toggle="tooltip" data-placement="right" title="2">
+        <span>backups</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/blueprint" data-toggle="tooltip" data-placement="right" title="1">
+        <span>blueprint</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/borg" data-toggle="tooltip" data-placement="right" title="1">
+        <span>borg</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/borgmatic" data-toggle="tooltip" data-placement="right" title="1">
+        <span>borgmatic</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/github" data-toggle="tooltip" data-placement="right" title="1">
+        <span>github</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/homeassistant" data-toggle="tooltip" data-placement="right" title="3">
+        <span>homeassistant</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/https" data-toggle="tooltip" data-placement="right" title="1">
+        <span>https</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/jekyll" data-toggle="tooltip" data-placement="right" title="1">
+        <span>jekyll</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/ruby" data-toggle="tooltip" data-placement="right" title="1">
+        <span>ruby</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/scripts" data-toggle="tooltip" data-placement="right" title="1">
+        <span>scripts</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/syncthing" data-toggle="tooltip" data-placement="right" title="1">
+        <span>syncthing</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/timeshift" data-toggle="tooltip" data-placement="right" title="1">
+        <span>timeshift</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/zwave" data-toggle="tooltip" data-placement="right" title="1">
+        <span>zwave</span></a></li>
+    
+  </ul>
+</div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+          <footer class="footer-distributed">
+      <div class="container">
+        <div class="footer">
+          <p>Jeremy Gillula &copy; 2022
+          <br>Theme: <a href="https://github.com/streetturtle/jekyll-clean-dark">Jekyll Clean Dark</a> with modifications</p>
+        </div>
+      </div>
+    </footer>
+
+    </div>
+  </body>
+</html>

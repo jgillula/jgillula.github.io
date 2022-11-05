@@ -1,0 +1,605 @@
+
+
+
+
+
+
+
+
+
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Random Hacks | Update Parameters of a Sleeping Z-Wave Device in Home Assistant on a Schedule </title>
+    <meta name="theme-color" content="#222222"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="/assets/js/jquery.min.js"></script>
+    <script src="/assets/js/popper.min.js"></script>
+    <script src="/assets/js/bootstrap4.min.js"></script>
+    <script src="/assets/js/header.js"></script>
+    <script src="/assets/css/svg-with-js/js/fontawesome-all.js"></script>
+    <link href="/assets/css/bootstrap4.min.css" rel="stylesheet">
+    <link href="/assets/css/theme.css" rel="stylesheet">
+    <link href="/assets/css/syntax.css" rel="stylesheet">
+ </head>
+
+<body>
+
+<script type="text/javascript">
+    WebFontConfig = {
+        google: {
+            families: ['Ubuntu::latin']
+        }
+    };
+    (function () {
+        var wf = document.createElement('script');
+        wf.src = ('https:' == document.location.protocol ? 'https' : 'http') +
+            '://ajax.googleapis.com/ajax/libs/webfont/1/webfont.js';
+        wf.type = 'text/javascript';
+        wf.async = 'true';
+        var s = document.getElementsByTagName('script')[0];
+        s.parentNode.insertBefore(wf, s);
+    })();
+
+
+ function InitCopyPaste(){
+   const codeBlocks = document.querySelectorAll("div.highlighter-rouge");
+
+   codeBlocks.forEach((codeblock, index) => {
+     const code = codeBlocks[index].innerText;
+     const copyCodeButton = document.createElement("button");
+     copyCodeButton.innerHTML = "COPY";
+     copyCodeButton.classList = "btn btn-sm btn-outline-primary";
+     // insert a copy button
+     copyCodeButton.onclick = function () {
+       window.navigator.clipboard.writeText(code);
+       copyCodeButton.innerHTML = "COPIED";
+       copyCodeButton.classList.add("btn-success");
+       copyCodeButton.classList.remove("btn-outline-primary");
+
+       setTimeout(() => {
+         copyCodeButton.innerHTML = "COPY";
+         copyCodeButton.classList.remove("btn-success");
+         copyCodeButton.classList.add("btn-outline-primary");
+       }, 2000);
+     };
+     // make the button
+     codeblock.appendChild(copyCodeButton);
+   });
+ }
+
+ document.addEventListener("DOMContentLoaded", InitCopyPaste);
+</script>
+
+
+<script>
+ $(document).ready(function(){
+
+ const headings = document.querySelectorAll('h1[id], h2[id],h3[id]'); // 1
+   const linkContent = '<i class="fas fa-link"></i>'; // 2
+   for (const heading of headings) { // 3
+                                     const space = document.createElement('span');
+     space.innerHTML=" ";
+     space.className = "header_link_span";
+   const linkIcon = document.createElement('a'); // 4
+   linkIcon.setAttribute('href', `#${heading.id}`); // 5
+   linkIcon.className = "header_link";
+   linkIcon.innerHTML = linkContent; // 6
+   space.appendChild(linkIcon); // 7
+     heading.appendChild(space);
+ }
+   });
+</script>
+
+
+
+<nav class="navbar navbar-expand-lg fixed-top navbar-dark">
+    <div class="container">
+        <a class="navbar-brand offset-md-1" href="/">Random Hacks</a>
+        <button class="navbar-toggler" type="button" data-toggle="collapse"
+                data-target="#navbarNavAltMarkup" aria-controls="navbarNavAltMarkup"
+                aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNavAltMarkup">
+          <div class="navbar-nav">
+            <a class="nav-item nav-link" href="/">Home</a>
+            <a class="nav-item nav-link" href="/about">About</a>
+          </div>
+        </div>
+    </div>
+</nav>
+
+    <div class="wrapper">
+      <div class="content">
+        <div class="container container-center">
+          <div class="row">
+            <div class="col-md-8 offset-md-1">
+              <div class="article">
+                <div class="card">
+                  <h1><a href="/2022/07/automatically-update-parameters-of-a-sleeping-z-wave-entity-in-home-assistant/">Update Parameters of a Sleeping Z-Wave Device in Home Assistant on a Schedule</a></h1>
+                  <div class="post-meta">
+                    <div class="post-time">
+                      <i class="fa fa-calendar-alt"></i>
+                      <time>02 Jul 2022</time>
+                    </div>
+                    <ul>
+                      
+                        <li><a href="/tag/homeassistant">homeassistant</a></li>
+                      
+                        <li><a href="/tag/zwave">zwave</a></li>
+                      
+                        <li><a href="/tag/automations">automations</a></li>
+                      
+                        <li><a href="/tag/scripts">scripts</a></li>
+                      
+                    </ul>
+                  </div>
+                   <div class="post-content"> 
+                     <h1 id="goals">Goals</h1>
+
+<p>I have a couple of Z-Wave temperature sensors in my house that are battery operated and so spend most of their time sleeping. When they’re sleeping they will occasionally wake up to send new readings to Home Assistant, but won’t check to see if their configuration parameters have been changed.</p>
+
+<p>However, I want to change their parameters over the course of the day: I want them to be more sensitive to temperature changes during the day, and less sensitive at night (in order to save battery power and get readings when I really care about them).</p>
+
+<h1 id="approach">Approach</h1>
+
+<p>The general idea is to:</p>
+
+<ol>
+  <li>Use the awesome <a href="https://github.com/nielsfaber/scheduler-component">custom scheduler component</a> and <a href="https://github.com/nielsfaber/scheduler-card">custom scheduler card</a> for Home Assistant to set a schedule that will call a script with certain parameters at certain times.</li>
+  <li>Use that script to iterate over our chosen Z-Wave devices, setting their parameters and adding them to a group to indicate that they need to be updated.</li>
+  <li>Use an automation that triggers when the Z-Wave devices report a measurement to ping them, thereby causing them to check in and retrieve their new parameters.</li>
+</ol>
+
+<p>Let’s see how this works in action. We’ll work backwards to chain the components together.</p>
+
+<h1 id="step-0-setup">Step 0. Setup</h1>
+
+<p>In order to know what Z-Wave devices we’ll want to update, we’ll create two <a href="https://www.home-assistant.io/integrations/group#old-style-groups">old-style groups</a> in Home Assistant’s <code class="language-plaintext highlighter-rouge">configuration.yaml</code>. The first indicates the target Z-Wave devices we’ll want to update, and the second will list which target devices currently need to actually be updated.</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">group</span><span class="pi">:</span>
+  <span class="na">aerq_temperature_sensors</span><span class="pi">:</span>
+    <span class="na">name</span><span class="pi">:</span> <span class="s2">"</span><span class="s">Target</span><span class="nv"> </span><span class="s">Aerq</span><span class="nv"> </span><span class="s">Temperature</span><span class="nv"> </span><span class="s">Sensors"</span>
+    <span class="na">entities</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="s">sensor.aerq_temperature_and_humidity_sensor_v2_0_air_temperature</span>
+      <span class="pi">-</span> <span class="s">sensor.aerq_temperature_and_humidity_sensor_v2_0_air_temperature_2</span>
+  <span class="na">aerq_sensors_needing_update</span><span class="pi">:</span>
+    <span class="na">name</span><span class="pi">:</span> <span class="s2">"</span><span class="s">Target</span><span class="nv"> </span><span class="s">Aerq</span><span class="nv"> </span><span class="s">Sensors</span><span class="nv"> </span><span class="s">Needing</span><span class="nv"> </span><span class="s">Update"</span>
+    <span class="na">entities</span><span class="pi">:</span> <span class="pi">[]</span>
+</code></pre></div></div>
+
+<p>Note that the group needing update is empty. That’s because we’ll populate it automatically as part of the schedule, so that devices are only in that group when they do indeed need to be updated.</p>
+
+<h1 id="step-1-the-automation">Step 1. The Automation</h1>
+
+<p>Let’s build up the automation. The goal is to have it trigger when a target device that needs to be updated reports a new sensor reading, so we can ping it and make it read its new parameters from Home Assistant.</p>
+
+<h2 id="the-trigger">The Trigger</h2>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code>
+<span class="na">trigger</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">platform</span><span class="pi">:</span> <span class="s">zwave_js.event</span>
+    <span class="na">entity_id</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="s">sensor.aerq_temperature_and_humidity_sensor_v2_0_air_temperature</span>
+      <span class="pi">-</span> <span class="s">sensor.aerq_temperature_and_humidity_sensor_v2_0_air_temperature_2</span>
+    <span class="na">event_source</span><span class="pi">:</span> <span class="s">node</span>
+    <span class="na">event</span><span class="pi">:</span> <span class="s">metadata updated</span>
+
+</code></pre></div></div>
+<p>The trigger is a <a href="https://www.home-assistant.io/integrations/zwave_js#zwave_jsevent"><code class="language-plaintext highlighter-rouge">zwave_js.event</code></a> trigger. It requires an <code class="language-plaintext highlighter-rouge">event_source</code> and an <code class="language-plaintext highlighter-rouge">event</code> to describe what sort of Z-Wave JS events we want to trigger on. We’ll use the <a href="https://zwave-js.github.io/node-zwave-js/#/api/node?id=quotmetadata-updatedquot"><code class="language-plaintext highlighter-rouge">metadata updated</code></a> <code class="language-plaintext highlighter-rouge">event</code> type, since that seems to fire any time one of the sensors sends in a new reading. Its <code class="language-plaintext highlighter-rouge">event_source</code> type is <code class="language-plaintext highlighter-rouge">node</code>.</p>
+
+<p>We also only want to trigger when one of our target Z-Wave devices reports a new sensor reading (and not every single Z-Wave device), so we list them in the <code class="language-plaintext highlighter-rouge">entity_id</code> field. Unfortunately Z-Wave JS doesn’t support a group here, so we have to manually list all the target Z-Wave sensors here (duplicating what we listed for the target group in step 0).</p>
+
+<h2 id="the-condition">The Condition</h2>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code>
+<span class="na">condition</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">condition</span><span class="pi">:</span> <span class="s">template</span>
+    <span class="na">value_template</span><span class="pi">:</span> <span class="pi">&gt;-</span>
+      <span class="s">{% set ns = namespace(update_needed=false) %}</span>
+      <span class="s">{% for entity_id in state_attr('group.aerq_sensors_needing_update', 'entity_id') %}</span>
+        <span class="s">{% set ns.update_needed = ns.update_needed or (entity_id in device_entities(trigger.device_id)) %}</span>
+      <span class="s">{% endfor %}</span>
+      <span class="s">{{ ns.update_needed }}</span>
+
+</code></pre></div></div>
+
+<p>The trigger will trigger any time a target device fires a <code class="language-plaintext highlighter-rouge">metadata updated</code> event–not just those that need to be updated. Thus we need to use a condition to ensure that the triggering device (whose <code class="language-plaintext highlighter-rouge">device_id</code> is automatically populated into <code class="language-plaintext highlighter-rouge">trigger.device_id</code> by Home Assistant) does indeed need to be updated.</p>
+
+<p>To do so, we create a variable called <code class="language-plaintext highlighter-rouge">update_needed</code>, initially <code class="language-plaintext highlighter-rouge">false</code>, which we’ll set to true if we detect that the triggering device needs an update. (We have to use a <code class="language-plaintext highlighter-rouge">namespace</code> because Jinja doesn’t persist variables into or out of for loops, unless they’re part of a namespace. Don’t ask me why.)</p>
+
+<p>We then loop through all the <code class="language-plaintext highlighter-rouge">entity_id</code>s in the group that lists the sensors that need to be updated. If the <code class="language-plaintext highlighter-rouge">entity_id</code> is in the list of entities for the triggering device (given by the <code class="language-plaintext highlighter-rouge">device_entities()</code> function), <code class="language-plaintext highlighter-rouge">ns.update_needed</code> will be set to <code class="language-plaintext highlighter-rouge">true</code>.</p>
+
+<p>Finally, we just print the value of <code class="language-plaintext highlighter-rouge">ns.update_needed</code> to evaluate whether the condition is true or false.</p>
+
+<h2 id="the-actions">The Actions</h2>
+
+<h3 id="updating-the-group-of-sensors-to-update">Updating the group of sensors to update</h3>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code>
+  <span class="pi">-</span> <span class="na">service</span><span class="pi">:</span> <span class="s">group.set</span>
+    <span class="na">data</span><span class="pi">:</span>
+      <span class="na">object_id</span><span class="pi">:</span> <span class="s">aerq_sensors_needing_update</span>
+      <span class="na">entities</span><span class="pi">:</span> <span class="pi">&gt;</span>
+        <span class="s">{% set ns = namespace(item_to_update="") %}</span>
+        
+        <span class="s">{% for entity_id in state_attr('group.aerq_sensors_needing_update', 'entity_id') %}</span>
+          <span class="s">{% if entity_id in device_entities(trigger.device_id) %}</span>
+            <span class="s">{% set ns.item_to_update = entity_id %}</span>
+          <span class="s">{% endif %}</span>
+        <span class="s">{% endfor %}</span>
+
+        <span class="s">{{ state_attr('group.aerq_sensors_needing_update', 'entity_id') | reject("eq", ns.item_to_update) | list }}</span>
+
+</code></pre></div></div>
+<p>The first action is to update the group of sensors needing an update, removing the sensor we’re updating, so we don’t bother to update it again. We do so by calling the <a href="https://www.home-assistant.io/integrations/group#services"><code class="language-plaintext highlighter-rouge">group.set</code></a> service, which allows us to set the members of a group. To figure out what members we want, we first have to identify the entity that we’re currently updating.</p>
+
+<p>We do that by looping through the entities in the group of sensors needing an update, and if we find an <code class="language-plaintext highlighter-rouge">entity_id</code> that matches one associated with the triggering device, we store it in <code class="language-plaintext highlighter-rouge">ns.item_to_update</code>.</p>
+
+<p>We then use <code class="language-plaintext highlighter-rouge">state_attr</code> to get the list of entities currently in the group, apply the <a href="https://jinja.palletsprojects.com/en/3.1.x/templates/#jinja-filters.reject"><code class="language-plaintext highlighter-rouge">reject</code></a> filter to reject the item we’re currently updating, and use the <a href="https://jinja.palletsprojects.com/en/3.1.x/templates/#jinja-filters.list"><code class="language-plaintext highlighter-rouge">list</code></a> filter to turn the remaining items into a list.</p>
+
+<h3 id="tell-the-device-when-to-check-in-next">Tell the device when to check in next</h3>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code>
+  <span class="pi">-</span> <span class="na">service</span><span class="pi">:</span> <span class="s">zwave_js.set_config_parameter</span>
+    <span class="na">target</span><span class="pi">:</span>
+      <span class="na">device_id</span><span class="pi">:</span> <span class="s1">'</span><span class="s">{{</span><span class="nv"> </span><span class="s">trigger.device_id</span><span class="nv"> </span><span class="s">}}'</span>
+    <span class="na">data</span><span class="pi">:</span>
+      <span class="na">parameter</span><span class="pi">:</span> <span class="m">4</span>
+      <span class="na">value</span><span class="pi">:</span> <span class="pi">&gt;</span>
+        <span class="s">{% if (states.switch | selectattr("attributes.entities", "eq", ["script.temperature_sensors_aerq_set_all_config_parameters_based_on_schedule"]) | list | length) &gt;= 1 and</span>
+              <span class="s">(states.switch | selectattr("attributes.entities", "eq", ["script.temperature_sensors_aerq_set_all_config_parameters_based_on_schedule"]) | map(attribute='state') | list | first) == "on" %}</span>
+          <span class="s">{{ [65535, ([0, ((as_timestamp((states.switch | selectattr("attributes.entities", "eq",["script.temperature_sensors_aerq_set_all_config_parameters_based_on_schedule"]) | map(attribute='attributes.next_trigger') | first)) - as_timestamp(now())) | round(0, 'floor') | int)+60] | max)] | min }} </span>
+        <span class="s">{% else %}</span>
+          <span class="s">{{ states("input_number.default_aerq_periodic_report_interval") | int }}</span>
+        <span class="s">{% endif %}</span>
+
+</code></pre></div></div>
+
+<p>The sensors I’m working with report at configurable intervals if their values have changed, but you can also set them to <a href="https://aeotec.freshdesk.com/support/solutions/articles/6000227918#:~:text=Parameter%204%3A%20Periodic%20Reports.">report no matter what at configurable intervals</a>, too. This is convenient, because based on the schedule I can calculate how long it should be until the next time I’ll want to change their parameters, and make sure they check in then (even if their readings haven’t changed between now and then). This action does that calculation and sets the parameter. Note that this calculation has to be performed here in the automation because the duration isn’t an absolute time–it’s how long to wait until the next forced check-in. Of course, we can’t know that duration ahead of time: it depends on when the sensor actually checks in.</p>
+
+<p>We use the <a href="https://www.home-assistant.io/integrations/zwave_js#service-zwave_jsset_config_parameter"><code class="language-plaintext highlighter-rouge">zwave_js.set_config_parameter</code></a> service to set parameter 4 (which happens to be the number of the parameter we want).</p>
+
+<p>To get the duration, we first use an if statement to see if there’s a <a href="https://github.com/nielsfaber/scheduler-component#scheduler-entities">custom schedule entity</a> whose target is the script we use to mark which devices need to be updated. Schedule entities are stored as switches, so we filter on all switches and select one whose <code class="language-plaintext highlighter-rouge">entities</code> attribute is that script. We then ensure it’s actually enabled by making sure it’s state is “on”.</p>
+
+<p>Then, assuming we found the schedule entity, we extract its next trigger time, subtract <code class="language-plaintext highlighter-rouge">now()</code> from it to get the number of seconds until then, round it to the nearest second, convert it to an int, at 60 seconds to give us a buffer to ensure the Home Assistant script will be run before the device checks in, and then ensure the value is between 0 and 65535.</p>
+
+<p>Otherwise, if we didn’t find the entity, we just use a default reporting interval that’s set by an <code class="language-plaintext highlighter-rouge">input_number</code> helper.</p>
+
+<h3 id="pinging-the-device">Pinging the device</h3>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code>
+  <span class="pi">-</span> <span class="na">service</span><span class="pi">:</span> <span class="s">zwave_js.ping</span>
+    <span class="na">target</span><span class="pi">:</span>
+      <span class="na">device_id</span><span class="pi">:</span> <span class="s1">'</span><span class="s">{{</span><span class="nv"> </span><span class="s">trigger.device_id</span><span class="nv"> </span><span class="s">}}'</span>
+
+</code></pre></div></div>
+<p>Finally, we ping the device. This causes the device to check in and get its new parameters from Home Assistant.</p>
+
+<h2 id="the-full-automation">The full automation</h2>
+
+<p>Putting it all together, the automation is as follows:</p>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code>
+<span class="na">alias</span><span class="pi">:</span> <span class="s1">'</span><span class="s">Aerq</span><span class="nv"> </span><span class="s">Sensors:</span><span class="nv"> </span><span class="s">Update</span><span class="nv"> </span><span class="s">Config</span><span class="nv"> </span><span class="s">Parameters</span><span class="nv"> </span><span class="s">Based</span><span class="nv"> </span><span class="s">on</span><span class="nv"> </span><span class="s">Schedule'</span>
+<span class="na">description</span><span class="pi">:</span> <span class="s1">'</span><span class="s">'</span>
+<span class="na">trigger</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">platform</span><span class="pi">:</span> <span class="s">zwave_js.event</span>
+    <span class="na">entity_id</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="s">sensor.aerq_temperature_and_humidity_sensor_v2_0_air_temperature</span>
+      <span class="pi">-</span> <span class="s">sensor.aerq_temperature_and_humidity_sensor_v2_0_air_temperature_2</span>
+    <span class="na">event_source</span><span class="pi">:</span> <span class="s">node</span>
+    <span class="na">event</span><span class="pi">:</span> <span class="s">metadata updated</span>
+<span class="na">condition</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">condition</span><span class="pi">:</span> <span class="s">template</span>
+    <span class="na">value_template</span><span class="pi">:</span> <span class="pi">&gt;-</span>
+      <span class="s">{% set ns = namespace(update_needed=false) %} {% for entity_id in state_attr('group.aerq_sensors_needing_update', 'entity_id') %}</span>
+        <span class="s">{% set ns.update_needed = ns.update_needed or (entity_id in device_entities(trigger.device_id)) %}</span>
+      <span class="s">{% endfor %}  {{ ns.update_needed }}</span>
+<span class="na">action</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">service</span><span class="pi">:</span> <span class="s">group.set</span>
+    <span class="na">data</span><span class="pi">:</span>
+      <span class="na">object_id</span><span class="pi">:</span> <span class="s">aerq_sensors_needing_update</span>
+      <span class="na">entities</span><span class="pi">:</span> <span class="pi">&gt;</span>
+        <span class="s">{% set ns = namespace(item_to_update="") %}</span>
+
+        <span class="s">{% for entity in state_attr('group.aerq_sensors_needing_update', 'entity_id') %}</span>
+          <span class="s">{% if entity in device_entities(trigger.device_id) %}</span>
+            <span class="s">{% set ns.item_to_update = entity %}</span>
+          <span class="s">{% endif %}</span>
+        <span class="s">{% endfor %}</span>
+
+        <span class="s">{{ state_attr('group.aerq_sensors_needing_update', 'entity_id') | reject("eq", ns.item_to_update) | list }}</span>
+  <span class="pi">-</span> <span class="na">service</span><span class="pi">:</span> <span class="s">zwave_js.set_config_parameter</span>
+    <span class="na">target</span><span class="pi">:</span>
+      <span class="na">device_id</span><span class="pi">:</span> <span class="s1">'</span><span class="s">{{</span><span class="nv"> </span><span class="s">trigger.device_id</span><span class="nv"> </span><span class="s">}}'</span>
+    <span class="na">data</span><span class="pi">:</span>
+      <span class="na">parameter</span><span class="pi">:</span> <span class="m">4</span>
+      <span class="na">value</span><span class="pi">:</span> <span class="pi">&gt;</span>
+        <span class="s">{% if (states.switch | selectattr("attributes.entities", "eq", ["script.temperature_sensors_aerq_set_all_config_parameters_based_on_schedule"]) | list | length) &gt;= 1 and</span>
+              <span class="s">(states.switch | selectattr("attributes.entities", "eq", ["script.temperature_sensors_aerq_set_all_config_parameters_based_on_schedule"]) | map(attribute='state') | list | first) == "on" %}</span>
+          <span class="s">{{ [65535, ([0, ((as_timestamp((states.switch | selectattr("attributes.entities", "eq",["script.temperature_sensors_aerq_set_all_config_parameters_based_on_schedule"]) | map(attribute='attributes.next_trigger') | first)) - as_timestamp(now())) | round(0, 'floor') | int)+60] | max)] | min }} </span>
+        <span class="s">{% else %}</span>
+          <span class="s">{{ states("input_number.default_aerq_periodic_report_interval") | int }}</span>
+        <span class="s">{% endif %}</span>
+  <span class="pi">-</span> <span class="na">service</span><span class="pi">:</span> <span class="s">zwave_js.ping</span>
+    <span class="na">target</span><span class="pi">:</span>
+      <span class="na">device_id</span><span class="pi">:</span> <span class="s1">'</span><span class="s">{{</span><span class="nv"> </span><span class="s">trigger.device_id</span><span class="nv"> </span><span class="s">}}'</span>
+<span class="na">trace</span><span class="pi">:</span>
+  <span class="na">stored_traces</span><span class="pi">:</span> <span class="m">20</span>
+<span class="na">mode</span><span class="pi">:</span> <span class="s">single</span>
+
+</code></pre></div></div>
+<p>Note that we’ve set <code class="language-plaintext highlighter-rouge">stored_traces</code> to 20 to facilitate debugging (so we can see lots of traces, since many of them will not actually go through the full script because they’ll be stopped early by the test condition).</p>
+
+<h1 id="2-the-script">2. The Script</h1>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code>
+<span class="na">alias</span><span class="pi">:</span> <span class="s">Temperature Sensors (aerq) Set All Config Parameters Based on Schedule</span>
+<span class="na">sequence</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="na">repeat</span><span class="pi">:</span>
+      <span class="na">count</span><span class="pi">:</span> <span class="s1">'</span><span class="s">{{</span><span class="nv"> </span><span class="s">expand("group.aerq_temperature_sensors")</span><span class="nv"> </span><span class="s">|</span><span class="nv"> </span><span class="s">length()</span><span class="nv"> </span><span class="s">}}'</span>
+      <span class="na">sequence</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">variables</span><span class="pi">:</span>
+            <span class="na">entity_id</span><span class="pi">:</span> <span class="pi">&gt;-</span>
+              <span class="s">{{ expand("group.aerq_temperature_sensors")[repeat.index -</span>
+              <span class="s">1].entity_id }}</span>
+        <span class="pi">-</span> <span class="na">service</span><span class="pi">:</span> <span class="s">zwave_js.set_config_parameter</span>
+          <span class="na">target</span><span class="pi">:</span>
+            <span class="na">entity_id</span><span class="pi">:</span> <span class="s1">'</span><span class="s">{{</span><span class="nv"> </span><span class="s">entity_id</span><span class="nv"> </span><span class="s">}}'</span>
+          <span class="na">data</span><span class="pi">:</span>
+            <span class="na">parameter</span><span class="pi">:</span> <span class="m">1</span>
+            <span class="na">value</span><span class="pi">:</span> <span class="s1">'</span><span class="s">{{</span><span class="nv"> </span><span class="s">temperature_change_threshold_degrees*10</span><span class="nv"> </span><span class="s">|</span><span class="nv"> </span><span class="s">int</span><span class="nv"> </span><span class="s">}}'</span>
+        <span class="pi">-</span> <span class="na">service</span><span class="pi">:</span> <span class="s">zwave_js.set_config_parameter</span>
+          <span class="na">target</span><span class="pi">:</span>
+            <span class="na">entity_id</span><span class="pi">:</span> <span class="s1">'</span><span class="s">{{</span><span class="nv"> </span><span class="s">entity_id</span><span class="nv"> </span><span class="s">}}'</span>
+          <span class="na">data</span><span class="pi">:</span>
+            <span class="na">parameter</span><span class="pi">:</span> <span class="m">3</span>
+            <span class="na">value</span><span class="pi">:</span> <span class="s1">'</span><span class="s">{{</span><span class="nv"> </span><span class="s">check_interval_minutes</span><span class="nv"> </span><span class="s">|</span><span class="nv"> </span><span class="s">int</span><span class="nv"> </span><span class="s">}}'</span>
+        <span class="pi">-</span> <span class="na">service</span><span class="pi">:</span> <span class="s">group.set</span>
+          <span class="na">data</span><span class="pi">:</span>
+            <span class="na">object_id</span><span class="pi">:</span> <span class="s">aerq_sensors_needing_update</span>
+            <span class="na">add_entities</span><span class="pi">:</span>
+              <span class="pi">-</span> <span class="s1">'</span><span class="s">{{</span><span class="nv"> </span><span class="s">entity_id</span><span class="nv"> </span><span class="s">}}'</span>
+<span class="na">mode</span><span class="pi">:</span> <span class="s">single</span>
+<span class="na">fields</span><span class="pi">:</span>
+  <span class="na">temperature_change_threshold_degrees</span><span class="pi">:</span>
+    <span class="na">name</span><span class="pi">:</span> <span class="s">Temperature Change Report Threshold</span>
+    <span class="na">description</span><span class="pi">:</span> <span class="s">(degrees)</span>
+    <span class="na">required</span><span class="pi">:</span> <span class="no">true</span>
+    <span class="na">default</span><span class="pi">:</span> <span class="m">0.1</span>
+    <span class="na">selector</span><span class="pi">:</span>
+      <span class="na">number</span><span class="pi">:</span>
+        <span class="na">min</span><span class="pi">:</span> <span class="m">0.1</span>
+        <span class="na">max</span><span class="pi">:</span> <span class="m">10.0</span>
+        <span class="na">step</span><span class="pi">:</span> <span class="m">0.1</span>
+        <span class="na">mode</span><span class="pi">:</span> <span class="s">box</span>
+  <span class="na">check_interval_minutes</span><span class="pi">:</span>
+    <span class="na">name</span><span class="pi">:</span> <span class="s">Threshold Check Interval</span>
+    <span class="na">description</span><span class="pi">:</span> <span class="s">(minutes)</span>
+    <span class="na">required</span><span class="pi">:</span> <span class="no">true</span>
+    <span class="na">default</span><span class="pi">:</span> <span class="m">2</span>
+    <span class="na">selector</span><span class="pi">:</span>
+      <span class="na">number</span><span class="pi">:</span>
+        <span class="na">min</span><span class="pi">:</span> <span class="m">1</span>
+        <span class="na">max</span><span class="pi">:</span> <span class="m">255</span>
+        <span class="na">step</span><span class="pi">:</span> <span class="m">1</span>
+        <span class="na">mode</span><span class="pi">:</span> <span class="s">box</span>
+
+</code></pre></div></div>
+
+<p>The script is fairly straightforward. First, we assume that <code class="language-plaintext highlighter-rouge">temperature_change_threshold_degrees</code> and <code class="language-plaintext highlighter-rouge">check_interval_minutes</code> have been passed as parameters to the script. These are the parameters we want to update for our Z-Wave devices, and more information about them can be found <a href="https://aeotec.freshdesk.com/support/solutions/articles/6000227918#:~:text=Configuration%20Parameters.">here</a>.</p>
+
+<p>Then we iterate over each of the <code class="language-plaintext highlighter-rouge">entity_id</code>s in <code class="language-plaintext highlighter-rouge">group.aerq_temperature_sensors</code>, and for each of them do the following.</p>
+
+<ol>
+  <li>Get the <code class="language-plaintext highlighter-rouge">entity_id</code> and store it as a variable we can use in templates for the rest of the sequence.</li>
+  <li>Use the <a href="https://www.home-assistant.io/integrations/zwave_js#service-zwave_jsset_config_parameter"><code class="language-plaintext highlighter-rouge">zwave_js.set_config_parameter</code></a> service to set parameter 1, which is the minimum change in temperature we want the sensor to report. We use the value passed in by <code class="language-plaintext highlighter-rouge">temperature_change_threshold_degrees</code> multiplied by 10 since <code class="language-plaintext highlighter-rouge">temperature_change_threshold_degrees</code> is in degrees, and the parameter the device expects should be in 10ths of a degree. (E.g. a value or 3.8 degrees should correspond to 38 10ths of a degree.)</li>
+  <li>Use the <a href="https://www.home-assistant.io/integrations/zwave_js#service-zwave_jsset_config_parameter"><code class="language-plaintext highlighter-rouge">zwave_js.set_config_parameter</code></a> service to set parameter 3, which is the interval in minutes at which the sensor should check for a temperature change. We use the value passed in by <code class="language-plaintext highlighter-rouge">check_interval_minutes</code>.</li>
+  <li>Use the <a href="https://www.home-assistant.io/integrations/group#services"><code class="language-plaintext highlighter-rouge">group.set</code></a> service to add the given <code class="language-plaintext highlighter-rouge">entity_id</code> to the group of target devices that need to be updated.</li>
+</ol>
+
+<p>Thus the script will set the parameters we want (as passed into it) for the devices we want to update, and add them to the group to indicate they need to be updated.</p>
+
+<h1 id="3-the-scheduler">3. The Scheduler</h1>
+
+<p>Last but not least we need to add the <a href="https://github.com/nielsfaber/scheduler-card">customer scheduler card</a>. The scheduler should call the script, passing in the parameters we want.</p>
+
+<p>We assume that the components are already installed. If not, you’ll have to <a href="https://hacs.xyz/docs/setup/download">install HACS</a> and then install the custom scheduler <a href="https://github.com/nielsfaber/scheduler-component#installation">component</a>/<a href="https://github.com/nielsfaber/scheduler-card#installation">card</a>.</p>
+
+<p>We simply change Lovelace into editing mode, click the “Add Card” button, choose the “Custom: Scheduler Card” (all the way at the bottom), click “Show Code Editor” to switch to code editing mode, and drop in the following YAML:</p>
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code>
+<span class="na">type</span><span class="pi">:</span> <span class="s">custom:scheduler-card</span>
+<span class="na">include</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="s">script.temperature_sensors_aerq_set_all_config_parameters_based_on_schedule</span>
+<span class="na">discover_existing</span><span class="pi">:</span> <span class="no">false</span>
+<span class="na">customize</span><span class="pi">:</span>
+  <span class="na">script.temperature_sensors_aerq_set_all_config_parameters_based_on_schedule</span><span class="pi">:</span>
+    <span class="na">actions</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">service</span><span class="pi">:</span> <span class="s">script.temperature_sensors_aerq_set_all_config_parameters_based_on_schedule</span>
+        <span class="na">name</span><span class="pi">:</span> <span class="s">Change Parameters</span>
+        <span class="na">icon</span><span class="pi">:</span> <span class="s">mdi:cog</span>
+        <span class="na">variables</span><span class="pi">:</span>
+          <span class="na">temperature_change_threshold_degrees</span><span class="pi">:</span>
+            <span class="na">name</span><span class="pi">:</span> <span class="s">Temperature Change Report Threshold</span>
+            <span class="na">min</span><span class="pi">:</span> <span class="m">0.1</span>
+            <span class="na">max</span><span class="pi">:</span> <span class="m">2</span>
+            <span class="na">step</span><span class="pi">:</span> <span class="m">0.1</span>
+            <span class="na">unit</span><span class="pi">:</span> <span class="s">°F</span>
+          <span class="na">check_interval_minutes</span><span class="pi">:</span>
+            <span class="na">name</span><span class="pi">:</span> <span class="s">Threshold Check Interval</span>
+            <span class="na">min</span><span class="pi">:</span> <span class="m">1</span>
+            <span class="na">max</span><span class="pi">:</span> <span class="m">60</span>
+            <span class="na">step</span><span class="pi">:</span> <span class="m">1</span>
+            <span class="na">unit</span><span class="pi">:</span> <span class="s1">'</span><span class="nv"> </span><span class="s">minutes'</span>
+<span class="na">time_step</span><span class="pi">:</span> <span class="m">5</span>
+<span class="na">title</span><span class="pi">:</span> <span class="no">false</span>
+<span class="na">display_options</span><span class="pi">:</span>
+  <span class="na">primary_info</span><span class="pi">:</span> <span class="s">default</span>
+  <span class="na">secondary_info</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="s">relative-time</span>
+    <span class="pi">-</span> <span class="s">time</span>
+    <span class="pi">-</span> <span class="s">additional-tasks</span>
+  <span class="na">icon</span><span class="pi">:</span> <span class="s">action</span>
+
+</code></pre></div></div>
+<p>The <code class="language-plaintext highlighter-rouge">type</code> is self-explanatory, and the <code class="language-plaintext highlighter-rouge">include</code> just indicates the script we want to call as part of our schedule. <code class="language-plaintext highlighter-rouge">discover_existing</code>, <code class="language-plaintext highlighter-rouge">title</code>, and <code class="language-plaintext highlighter-rouge">display_options</code> are all configuration options for the UX; more info can be found <a href="https://github.com/nielsfaber/scheduler-card#options">here</a>.</p>
+
+<p>The <code class="language-plaintext highlighter-rouge">customize</code> section is used to tell the scheduler card what service to call (in this case <code class="language-plaintext highlighter-rouge">script.temperature_sensors_aerq_set_all_config_parameters_based_on_schedule</code>), and what parameters to send it. Specifying those parameters in the <code class="language-plaintext highlighter-rouge">variables</code> section tells the custom scheduler card how to display them and let me select them from the user interface.</p>
+
+<h1 id="conclusion">Conclusion</h1>
+
+<p>And that’s it! We now have a scheduler that periodically runs a script which primes an automation that will trigger and cause our target Z-Wave devices to check in with Home Assistant and read their new configuration parameters!</p>
+ 
+                     
+ 
+                   </div> 
+                </div>
+              </div>
+            </div>
+            <div class="col-md-3 hidden-xs">
+              
+<div class="sidebar ">
+  <h2>In This Post:</h2>
+  <ul class="toc">
+  <li><a href="#goals">Goals</a></li>
+  <li><a href="#approach">Approach</a></li>
+  <li><a href="#step-0-setup">Step 0. Setup</a></li>
+  <li><a href="#step-1-the-automation">Step 1. The Automation</a>
+    <ul>
+      <li><a href="#the-trigger">The Trigger</a></li>
+      <li><a href="#the-condition">The Condition</a></li>
+      <li><a href="#the-actions">The Actions</a>
+        <ul>
+          <li><a href="#updating-the-group-of-sensors-to-update">Updating the group of sensors to update</a></li>
+          <li><a href="#tell-the-device-when-to-check-in-next">Tell the device when to check in next</a></li>
+          <li><a href="#pinging-the-device">Pinging the device</a></li>
+        </ul>
+      </li>
+      <li><a href="#the-full-automation">The full automation</a></li>
+    </ul>
+  </li>
+  <li><a href="#2-the-script">2. The Script</a></li>
+  <li><a href="#3-the-scheduler">3. The Scheduler</a></li>
+  <li><a href="#conclusion">Conclusion</a></li>
+</ul>
+</div>
+
+
+<div class="sidebar ">
+  <h2>Recent Posts</h2>
+  <ul>
+    
+    <li><a href="/2022/11/backups/">Server Backups!</a></li>
+    
+    <li><a href="/2022/10/hosting-your-own-apt-repo-cache/">Hosting Your Own Apt Repo Cache</a></li>
+    
+    <li><a href="/2022/07/getting-home-assistant-to-tell-me-when-to-open-the-windows/">Getting Home Assistant to Tell Me When to Open the Windows</a></li>
+    
+    <li><a href="/2022/07/updating-uncleared-home-assistant-android-notifications-with-appdaemon/">Updating Uncleared Home Assistant Android Notifications with AppDaemon</a></li>
+    
+    <li><a href="/2022/07/automatically-update-parameters-of-a-sleeping-z-wave-entity-in-home-assistant/">Update Parameters of a Sleeping Z-Wave Device in Home Assistant on a Schedule</a></li>
+    
+  </ul>
+</div>
+
+<div class="sidebar">
+  <h2>Tags</h2>
+  <ul class="fa-ul">
+    
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/apache2" data-toggle="tooltip" data-placement="right" title="1">
+        <span>apache2</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/appdaemon" data-toggle="tooltip" data-placement="right" title="1">
+        <span>appdaemon</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/apt" data-toggle="tooltip" data-placement="right" title="1">
+        <span>apt</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/apt-cacher-ng" data-toggle="tooltip" data-placement="right" title="1">
+        <span>apt-cacher-ng</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/apt-clone" data-toggle="tooltip" data-placement="right" title="1">
+        <span>apt-clone</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/automations" data-toggle="tooltip" data-placement="right" title="2">
+        <span>automations</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/backups" data-toggle="tooltip" data-placement="right" title="2">
+        <span>backups</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/blueprint" data-toggle="tooltip" data-placement="right" title="1">
+        <span>blueprint</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/borg" data-toggle="tooltip" data-placement="right" title="1">
+        <span>borg</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/borgmatic" data-toggle="tooltip" data-placement="right" title="1">
+        <span>borgmatic</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/github" data-toggle="tooltip" data-placement="right" title="1">
+        <span>github</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/homeassistant" data-toggle="tooltip" data-placement="right" title="3">
+        <span>homeassistant</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/https" data-toggle="tooltip" data-placement="right" title="1">
+        <span>https</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/jekyll" data-toggle="tooltip" data-placement="right" title="1">
+        <span>jekyll</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/ruby" data-toggle="tooltip" data-placement="right" title="1">
+        <span>ruby</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/scripts" data-toggle="tooltip" data-placement="right" title="1">
+        <span>scripts</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/syncthing" data-toggle="tooltip" data-placement="right" title="1">
+        <span>syncthing</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/timeshift" data-toggle="tooltip" data-placement="right" title="1">
+        <span>timeshift</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/zwave" data-toggle="tooltip" data-placement="right" title="1">
+        <span>zwave</span></a></li>
+    
+  </ul>
+</div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+          <footer class="footer-distributed">
+      <div class="container">
+        <div class="footer">
+          <p>Jeremy Gillula &copy; 2022
+          <br>Theme: <a href="https://github.com/streetturtle/jekyll-clean-dark">Jekyll Clean Dark</a> with modifications</p>
+        </div>
+      </div>
+    </footer>
+
+    </div>
+  </body>
+</html>

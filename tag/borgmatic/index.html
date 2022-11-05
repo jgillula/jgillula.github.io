@@ -1,0 +1,396 @@
+
+
+
+
+
+
+
+
+
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Random Hacks</title>
+    <meta name="theme-color" content="#222222"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="/assets/js/jquery.min.js"></script>
+    <script src="/assets/js/popper.min.js"></script>
+    <script src="/assets/js/bootstrap4.min.js"></script>
+    <script src="/assets/js/header.js"></script>
+    <script src="/assets/css/svg-with-js/js/fontawesome-all.js"></script>
+    <link href="/assets/css/bootstrap4.min.css" rel="stylesheet">
+    <link href="/assets/css/theme.css" rel="stylesheet">
+    <link href="/assets/css/syntax.css" rel="stylesheet">
+ </head>
+
+<body>
+
+<script type="text/javascript">
+    WebFontConfig = {
+        google: {
+            families: ['Ubuntu::latin']
+        }
+    };
+    (function () {
+        var wf = document.createElement('script');
+        wf.src = ('https:' == document.location.protocol ? 'https' : 'http') +
+            '://ajax.googleapis.com/ajax/libs/webfont/1/webfont.js';
+        wf.type = 'text/javascript';
+        wf.async = 'true';
+        var s = document.getElementsByTagName('script')[0];
+        s.parentNode.insertBefore(wf, s);
+    })();
+
+
+ function InitCopyPaste(){
+   const codeBlocks = document.querySelectorAll("div.highlighter-rouge");
+
+   codeBlocks.forEach((codeblock, index) => {
+     const code = codeBlocks[index].innerText;
+     const copyCodeButton = document.createElement("button");
+     copyCodeButton.innerHTML = "COPY";
+     copyCodeButton.classList = "btn btn-sm btn-outline-primary";
+     // insert a copy button
+     copyCodeButton.onclick = function () {
+       window.navigator.clipboard.writeText(code);
+       copyCodeButton.innerHTML = "COPIED";
+       copyCodeButton.classList.add("btn-success");
+       copyCodeButton.classList.remove("btn-outline-primary");
+
+       setTimeout(() => {
+         copyCodeButton.innerHTML = "COPY";
+         copyCodeButton.classList.remove("btn-success");
+         copyCodeButton.classList.add("btn-outline-primary");
+       }, 2000);
+     };
+     // make the button
+     codeblock.appendChild(copyCodeButton);
+   });
+ }
+
+ document.addEventListener("DOMContentLoaded", InitCopyPaste);
+</script>
+
+
+
+
+<nav class="navbar navbar-expand-lg fixed-top navbar-dark">
+    <div class="container">
+        <a class="navbar-brand offset-md-1" href="/">Random Hacks</a>
+        <button class="navbar-toggler" type="button" data-toggle="collapse"
+                data-target="#navbarNavAltMarkup" aria-controls="navbarNavAltMarkup"
+                aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNavAltMarkup">
+          <div class="navbar-nav">
+            <a class="nav-item nav-link" href="/">Home</a>
+            <a class="nav-item nav-link" href="/about">About</a>
+          </div>
+        </div>
+    </div>
+</nav>
+
+
+    <div class="wrapper">
+      <div class="content">
+        <div class="container container-center">
+          <div class="row">
+            <div class="col-md-8 offset-md-1">
+              <div class="card">
+                <!-- <div class="page-content wc-container"> -->
+
+<!--   <div class="post"> -->
+<!--     <h2 class="post_title"></h2> -->
+<!--     <ul> -->
+<!--        -->
+<!--          -->
+<!--            -->
+<!--          -->
+<!--            -->
+<!--          -->
+<!--            -->
+<!--           <li class="archive_list"> -->
+<!--             <time>05 Nov 2022</time> -->
+<!--             <a class="archive_list_article_link" href='/2022/11/backups/'>Server Backups!</a> -->
+<!--             <p>Backups are important. Here's my backup plan for my home server.</p> -->
+<!--           </li> -->
+<!--            -->
+<!--          -->
+<!--            -->
+<!--          -->
+<!--            -->
+<!--          -->
+<!--        -->
+<!--          -->
+<!--            -->
+<!--          -->
+<!--            -->
+<!--          -->
+<!--            -->
+<!--          -->
+<!--        -->
+<!--          -->
+<!--            -->
+<!--          -->
+<!--            -->
+<!--          -->
+<!--            -->
+<!--          -->
+<!--        -->
+<!--          -->
+<!--            -->
+<!--          -->
+<!--            -->
+<!--          -->
+<!--        -->
+<!--          -->
+<!--            -->
+<!--          -->
+<!--            -->
+<!--          -->
+<!--            -->
+<!--          -->
+<!--            -->
+<!--          -->
+<!--        -->
+<!--          -->
+<!--            -->
+<!--          -->
+<!--            -->
+<!--          -->
+<!--            -->
+<!--          -->
+<!--        -->
+<!--          -->
+<!--            -->
+<!--          -->
+<!--            -->
+<!--          -->
+<!--            -->
+<!--          -->
+<!--        -->
+<!--     </ul> -->
+<!--   </div> -->
+<!-- </div> -->
+
+    <h1 class="post_title">Posts tagged "borgmatic"</h2>
+
+      
+        
+          
+        
+          
+        
+          
+
+<h2 class="post-title">
+  <a href="/2022/11/backups/">
+    Server Backups!
+  </a>
+</h2>
+
+<div class="post-meta">
+  <div class="post-time">
+    <i class="fa fa-calendar-alt"></i>
+    <time datetime='2022-11-05'>05 Nov 2022</time>
+  </div>
+  <ul>
+    
+    <li><a href="/tag/backups">backups</a></li>
+    
+    <li><a href="/tag/borg">borg</a></li>
+    
+    <li><a href="/tag/borgmatic">borgmatic</a></li>
+    
+    <li><a href="/tag/apt-clone">apt-clone</a></li>
+    
+    <li><a href="/tag/timeshift">timeshift</a></li>
+    
+  </ul>
+</div>
+
+<div class="post-descr">
+  <p>
+    Backups are important. Here's my backup plan for my home server.
+  </p>
+</div>
+          
+        
+          
+        
+          
+        
+      
+        
+          
+        
+          
+        
+          
+        
+      
+        
+          
+        
+          
+        
+          
+        
+      
+        
+          
+        
+          
+        
+      
+        
+          
+        
+          
+        
+          
+        
+          
+        
+      
+        
+          
+        
+          
+        
+          
+        
+      
+        
+          
+        
+          
+        
+          
+        
+      
+
+              </div>
+            </div>
+            <div class="col-md-3 hidden-xs">
+              
+
+<div class="sidebar ">
+  <h2>Recent Posts</h2>
+  <ul>
+    
+    <li><a href="/2022/11/backups/">Server Backups!</a></li>
+    
+    <li><a href="/2022/10/hosting-your-own-apt-repo-cache/">Hosting Your Own Apt Repo Cache</a></li>
+    
+    <li><a href="/2022/07/getting-home-assistant-to-tell-me-when-to-open-the-windows/">Getting Home Assistant to Tell Me When to Open the Windows</a></li>
+    
+    <li><a href="/2022/07/updating-uncleared-home-assistant-android-notifications-with-appdaemon/">Updating Uncleared Home Assistant Android Notifications with AppDaemon</a></li>
+    
+    <li><a href="/2022/07/automatically-update-parameters-of-a-sleeping-z-wave-entity-in-home-assistant/">Update Parameters of a Sleeping Z-Wave Device in Home Assistant on a Schedule</a></li>
+    
+  </ul>
+</div>
+
+<div class="sidebar">
+  <h2>Tags</h2>
+  <ul class="fa-ul">
+    
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/apache2" data-toggle="tooltip" data-placement="right" title="1">
+        <span>apache2</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/appdaemon" data-toggle="tooltip" data-placement="right" title="1">
+        <span>appdaemon</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/apt" data-toggle="tooltip" data-placement="right" title="1">
+        <span>apt</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/apt-cacher-ng" data-toggle="tooltip" data-placement="right" title="1">
+        <span>apt-cacher-ng</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/apt-clone" data-toggle="tooltip" data-placement="right" title="1">
+        <span>apt-clone</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/automations" data-toggle="tooltip" data-placement="right" title="2">
+        <span>automations</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/backups" data-toggle="tooltip" data-placement="right" title="2">
+        <span>backups</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/blueprint" data-toggle="tooltip" data-placement="right" title="1">
+        <span>blueprint</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/borg" data-toggle="tooltip" data-placement="right" title="1">
+        <span>borg</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/borgmatic" data-toggle="tooltip" data-placement="right" title="1">
+        <span>borgmatic</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/github" data-toggle="tooltip" data-placement="right" title="1">
+        <span>github</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/homeassistant" data-toggle="tooltip" data-placement="right" title="3">
+        <span>homeassistant</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/https" data-toggle="tooltip" data-placement="right" title="1">
+        <span>https</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/jekyll" data-toggle="tooltip" data-placement="right" title="1">
+        <span>jekyll</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/ruby" data-toggle="tooltip" data-placement="right" title="1">
+        <span>ruby</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/scripts" data-toggle="tooltip" data-placement="right" title="1">
+        <span>scripts</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/syncthing" data-toggle="tooltip" data-placement="right" title="1">
+        <span>syncthing</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/timeshift" data-toggle="tooltip" data-placement="right" title="1">
+        <span>timeshift</span></a></li>
+    
+    <li><span class="fa-li"><i class="fas fa-tag"></i></span>
+            <a href="/tag/zwave" data-toggle="tooltip" data-placement="right" title="1">
+        <span>zwave</span></a></li>
+    
+  </ul>
+</div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+          <footer class="footer-distributed">
+      <div class="container">
+        <div class="footer">
+          <p>Jeremy Gillula &copy; 2022
+          <br>Theme: <a href="https://github.com/streetturtle/jekyll-clean-dark">Jekyll Clean Dark</a> with modifications</p>
+        </div>
+      </div>
+    </footer>
+
+    </div>
+  </body>
+</html>
